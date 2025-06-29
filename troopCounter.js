@@ -241,7 +241,7 @@ function calculateEverything() {
                         $.each(game_data.units, function (index) {
                             unitName = game_data.units[index];
                             if (rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim() != '?') {
-                                villageData[thisID][unitName] = rows.eq(rowNr).children().not(':first').eq(index).text().trim();
+                                villageData[thisID][unitName] = rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim();
                                 villageData["total"][unitName] += parseInt(rows.eq(rowNr).children().not(':first').eq(index).text().trim());
                             }
                             else {
