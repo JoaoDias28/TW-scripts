@@ -243,7 +243,6 @@ function calculateEverything() {
                             if (rows.eq(rowNr).children().not(':first').eq(index).text().trim() != '?') {
                                 villageData[thisID][unitName] = rows.eq(rowNr).children().not(':first').eq(index).text().trim();
                                 villageData["total"][unitName] += parseInt(rows.eq(rowNr).children().not(':first').eq(index).text().trim());
-                                console.log("Adding " + villageData[thisID][unitName] + " " + unitName + " to player " + player[i].name + " village " + thisID);
                             }
                             else {
                                 villageData[thisID][unitName] = 0;
