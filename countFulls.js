@@ -1,126 +1,153 @@
-javascript: 
-if (window.location.href.indexOf('&screen=ally&mode=members') < 0
+javascript:
+if (window.location.href.indexOf('&screen=ally&mode=members') < 0 
  || window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
   window.location.assign(game_data.link_base_pure + "ally&mode=members");
 }
 
-let baseURL = `game.php?screen=ally&mode=members_troops&player_id=`,
-    playerURLs = [], players = [], playerData = [],
-    minVK, minLightCav, minRam;
+const baseURL      = `game.php?screen=ally&mode=members_troops&player_id=`;
+let   playerURLs   = [], 
+      players      = [], 
+      playerData   = {},   // { playerName: [ {axe, light, ram}, … ] }
 
-// --- Load (or initialize) thresholds from localStorage ---
+let minAxe, minLightCav, minRam;
+
+// === SETTINGS LOAD / INIT ===
 (function(){
-  let s = localStorage.getItem("settingsTribeMembers");
-  if (s) {
-    let a = JSON.parse(s).map(o=>parseInt(o.value,10));
-    [minVK, minLightCav, minRam] = a;
+  const key = "settingsTribeMembers";
+  let stored = localStorage.getItem(key);
+  if (stored) {
+    let arr = JSON.parse(stored);
+    minAxe        = parseInt(arr[0].value, 10);
+    minLightCav   = parseInt(arr[1].value, 10);
+    minRam        = parseInt(arr[2].value, 10);
   } else {
     let defaults = [
-      { name:"minVK",       value:"4500" },
-      { name:"minLightCav", value:"2000" },
-      { name:"minRam",      value:"300"  }
+      { name:"minAxe",       value:"100"  },  // default min axes
+      { name:"minLightCav",  value:"2000" },
+      { name:"minRam",       value:"300"  }
     ];
-    localStorage.setItem("settingsTribeMembers", JSON.stringify(defaults));
-    [minVK, minLightCav, minRam] = defaults.map(o=>parseInt(o.value,10));
+    localStorage.setItem(key, JSON.stringify(defaults));
+    minAxe        = 100;
+    minLightCav   = 2000;
+    minRam        = 300;
   }
 })();
 
-// --- Collect tribe members ---
+// === COLLECT MEMBERS ===
 $('input:radio[name=player]').each(function(){
-  let id = $(this).val(),
+  let id   = $(this).val(),
       name = $(this).parent().text().trim();
   playerURLs.push(baseURL + id);
   players.push({ id, name });
 });
 
-// --- Throttled multi-GET helper ---
-$.getAll = function(urls, onLoad, onDone, onError){
-  let idx=0, last=0, minWait=600;
+// === THROTTLED MULTI-GET ===
+$.getAll = function(urls, onLoad, onDone, onError) {
+  let idx = 0, last = 0, delay = 600;
   (function next(){
-    if(idx>=urls.length) return onDone();
-    let now=Date.now(), delta=now-last;
-    if(delta<minWait) return setTimeout(next, minWait-delta);
-    last=now;
+    if (idx >= urls.length) return onDone();
+    let now = Date.now(), d = now - last;
+    if (d < delay) return setTimeout(next, delay - d);
+    last = now;
     $.get(urls[idx])
-     .done(data=>{ onLoad(idx, data); idx++; next(); })
-     .fail(err=> onError(err));
+      .done(html => { onLoad(idx, html); idx++; next(); })
+      .fail(err => onError(err));
   })();
 };
 
-// --- Fetch & parse every member’s troop pages ---
-function calculateEverything(){
-  $.getAll(playerURLs,
+// === SCRAPE EACH MEMBER ===
+function calculateEverything() {
+  $.getAll(
+    playerURLs,
     (i, html) => {
-      let name = players[i].name,
-          $doc = $(html),
-          rows = $doc.find('.vis.w100 tr').not(':first'),
-          extraLinks = $doc.find('.paged-nav-item[href]').map((_,a)=>a.href).get();
+      let playerName = players[i].name;
+      let $doc       = $(html);
+      let rows       = $doc.find('.vis.w100 tr').not(':first');
 
-      playerData[name] = [];
-
-      // fetch extra pages if any
-      $.getAll(extraLinks,
-        (_, moreHtml) => {
-          rows = rows.add($(moreHtml).find('.vis.w100 tr').not(':first'));
-        },
-        ()=>{ /* all pages loaded */ },
-        e=>console.error(e)
-      );
-
-      // parse each village row
-      rows.each((_,tr)=>{
-        let $tr = $(tr).children(),
-            // grab unit counts
-            stats = { vk:0, light:0, ram:0 };
-        game_data.units.forEach((unit, idx)=>{
-          let txt = $tr.eq(idx+1).text().trim(),
-              cnt = txt==='?'?0:parseInt(txt,10);
-          switch(unit){
-            case 'axe':     stats.vk    += cnt;       break;
-            case 'light':   stats.vk    += 4*cnt;
-                             stats.light= cnt;       break;
-            case 'marcher': stats.vk    += 5*cnt;       break;
-            case 'ram':     stats.vk    += 5*cnt;
-                             stats.ram  = cnt;       break;
-            case 'catapult':stats.vk    += 8*cnt;       break;
-            // any other unit: ignore entirely
-          }
-        });
-        playerData[name].push(stats);
+      // pagination links
+      let extraHrefs = [];
+      $doc.find('.paged-nav-item[href]').each((_,el)=>{
+        let href = $(el).getAttribute
+                    ? el.href 
+                    : $(el).attr('href');
+        if (href && !extraHrefs.includes(href)) extraHrefs.push(href);
       });
+
+      playerData[playerName] = [];
+
+      // fetch extra pages
+      $.getAll(
+        extraHrefs.map(h=>game_data.link_base_pure + h),
+        (_, moreHtml) => {
+          let $m = $(moreHtml);
+          let r  = $m.find('.vis.w100 tr').not(':first');
+          rows = rows.add(r);
+        },
+        () => {
+          // parse all rows
+          rows.each((_, tr) => {
+            let $cells = $(tr).children(),
+                stats  = { axe:0, light:0, ram:0 };
+
+            game_data.units.forEach((unit, idx) => {
+              let txt = $cells.eq(idx+1).text().trim(),
+                  cnt = txt === '?' ? 0 : parseInt(txt,10);
+              switch(unit) {
+                case 'axe':
+                  stats.axe = cnt;
+                  break;
+                case 'light':
+                  stats.light = cnt;
+                  break;
+                case 'ram':
+                  stats.ram = cnt;
+                  break;
+                // ignore all others
+              }
+            });
+
+            playerData[playerName].push(stats);
+          });
+        },
+        err => console.error(err)
+      );
     },
-    () => displayTotals(),
+    () => displayResults(),
     err => console.error(err)
   );
 }
 
-// --- Compute tribe + per-player “full” counts & render ---
-function displayTotals(){
+// === COMPUTE & DISPLAY ===
+function displayResults() {
   let tribeFull = 0,
       perPlayer = {};
 
   players.forEach(p => {
-    let list = playerData[p.name] || [],
-        full = list.reduce((sum, v)=>{
-          return sum + (
-            v.vk    >= minVK &&
-            v.light >= minLightCav &&
-            v.ram   >= minRam
-            ? 1 : 0
-          );
-        }, 0);
-    perPlayer[p.name] = full;
-    tribeFull += full;
+    let list = playerData[p.name] || [];
+    let fullCount = list.reduce((sum, v) => {
+      return sum + (
+        v.axe   >= minAxe       &&
+        v.light >= minLightCav  &&
+        v.ram   >= minRam
+        ? 1 : 0
+      );
+    }, 0);
+    perPlayer[p.name] = fullCount;
+    tribeFull += fullCount;
   });
 
-  // build and inject a simple UI
-  let panel = `
-    <div style="background:#202225;color:#fff;padding:10px;margin:10px 0">
-      <h2>Tribe “full-attack” villages: ${tribeFull}</h2>
-      <table style="width:100%;border-collapse:collapse;color:#fff">
+  const panel = `
+    <div style="background:#202225;color:#fff;padding:12px;margin:12px 0">
+      <h2 style="margin:0">
+        Tribe full villages (axe≥${minAxe}, light≥${minLightCav}, ram≥${minRam}): 
+        ${tribeFull}
+      </h2>
+      <table style="width:100%;border-collapse:collapse;color:#fff;margin-top:8px">
         <thead>
-          <tr><th style="text-align:left">Member</th>
-              <th style="text-align:right">Full count</th></tr>
+          <tr>
+            <th style="text-align:left;padding:4px">Member</th>
+            <th style="text-align:right;padding:4px">Full count</th>
+          </tr>
         </thead>
         <tbody>
           ${players.map(p=>`
@@ -131,8 +158,7 @@ function displayTotals(){
           `).join('')}
         </tbody>
       </table>
-    </div>
-  `;
+    </div>`;
   $("#contentContainer").prepend(panel);
 }
 
