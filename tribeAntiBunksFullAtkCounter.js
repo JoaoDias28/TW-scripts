@@ -457,8 +457,9 @@ function displayEverything() {
             `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
         offTable += `
             <tr>
-                <td class="item-padded">Full Anti-Bunk:</td>
-                <td class="item-padded">${typeTotals[playerName]["AntiBunk"]}</td>
+                <td class="item-padded" colspan="4">
++           <strong>Full Anti-Bunk:</strong> ${typeTotals[playerName]["AntiBunk"]}
++       </td>
             </tr>
             <tr>
                 <td colspan="2" class="item-padded">
@@ -477,15 +478,17 @@ function displayEverything() {
             `<tr class="village-list-table"><td class="item-padded">${v.coord}</td><td class="item-padded">${numberWithCommas(v.axe)}</td><td class="item-padded">${numberWithCommas(v.lc)}</td><td class="item-padded">${numberWithCommas(v.ram)}</td></tr>`).join('');
         offTable += `
             <tr>
-                <td class="item-padded">Full Atk Normal:</td>
-                <td class="item-padded">${typeTotals[playerName]["FullAtk"]}</td>
+                <td class="item-padded">Full Atk Normal: 
+                <strong>Full Atk Normal:</strong> ${typeTotals[playerName]["FullAtk"]}
+                </td>
+               
             </tr>
             <tr>
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
                         <table width="100%" class="village-list-table">
-                            <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
+                            <tr><th>Village</th><th>Axe</th><th>Cav Light</th><th>Ram</th></tr>
                             ${faRows || '<tr><td class="item-padded" >—</td></tr>'}
                         </table>
                     </div>
