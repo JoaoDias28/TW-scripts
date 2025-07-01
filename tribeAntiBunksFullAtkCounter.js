@@ -475,7 +475,7 @@ function displayEverything() {
 
         // --- FullAtk Table ---
         const faRows = playerBuckets.FullAtk.map(v =>
-            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
+            `<tr class="village-list-table"><td class="item-padded">${v.coord}</td><td class="item-padded">${numberWithCommas(v.axe)}</td><td class="item-padded">${numberWithCommas(v.lc)}</td><td class="item-padded">${numberWithCommas(v.ram)}</td></tr>`).join('');
         offTable += `
             <tr>
                 <td class="item-padded">Full Atk Normal:</td>
@@ -487,7 +487,7 @@ function displayEverything() {
                     <div class="content">
                         <table class="village-list-table">
                             <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
-                            ${faRows || '<tr><td class="item-padded" colspan="4">—</td></tr>'}
+                            ${faRows || '<tr><td class="item-padded" >—</td></tr>'}
                         </table>
                     </div>
                 </td>
