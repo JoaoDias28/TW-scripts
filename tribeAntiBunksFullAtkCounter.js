@@ -457,9 +457,9 @@ function displayEverything() {
             `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
         offTable += `
             <tr>
-                <td class="item-padded" colspan="4">
-+           <strong>Full Anti-Bunk:</strong> ${typeTotals[playerName]["AntiBunk"]}
-+       </td>
+                <td class="item-padded" >
+                 ${typeTotals[playerName]["AntiBunk"]}
+                </td>
             </tr>
             <tr>
                 <td colspan="2" class="item-padded">
@@ -479,7 +479,7 @@ function displayEverything() {
         offTable += `
             <tr>
                 <td class="item-padded">Full Atk Normal: 
-                <strong>Full Atk Normal:</strong> ${typeTotals[playerName]["FullAtk"]}
+                 ${typeTotals[playerName]["FullAtk"]}
                 </td>
                
             </tr>
