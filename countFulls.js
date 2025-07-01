@@ -138,14 +138,22 @@ function parseRows (idx, rows) {
 
     rows.forEach(row => {
         const $r = $(row);
-        const vId = $r.find('a')[0].outerHTML.match(/id=(\\d+)/)[1];
+
+        /* ---------- FIXED village-id extraction ---------- */
+        const href = ($r.find('a[href*="info_village"]')[0] || {}).href || '';
+        const m    = href.match(/[?&]id=(\d+)/);
+        if (!m) return;                     // skip rows without an id
+        const vId = m[1];
+        /* -------------------------------------------------- */
+
         pdata[vId] = {};
-        game_data.units.forEach((u, i) => {
-            const val = +$r.children().not(':first').eq(i + 1).text().trim().replace(/\\D/g,'') || 0;
+        game_data.units.forEach((u,i)=>{
+            const val = +$r.children().not(':first').eq(i+1).text().trim().replace(/\D/g,'')||0;
             pdata[vId][u] = val;
-            pdata.total[u] += val;
+            pdata.total[u]+= val;
         });
     });
+
     playerData[players[idx].name] = pdata;
     totals[players[idx].name] = {
         fullAtk:0, plusAtk:0,
