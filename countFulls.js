@@ -1,287 +1,449 @@
-/*************************************************************************
- * Tribe member troop counter – troop-based version
- * Original by Sophie “Shinko to Kuma”, refactored July 2025
- * ----------------------------------------------------------------------
- *  ➤ OFF buckets use raw counts:
- *      – Full Atk               axe ≥ fullAtkAxe  &&  lc ≥ fullAtkLC  &&  ram ≥ fullAtkRam
- *      – Full Atk + rams        axe ≥ plusAxe     &&  lc ≥ plusLC     &&  ram ≥ plusRam
- *        (villages that pass the second test are *not* counted in the first)
- *  ➤ DEF buckets still use population (spear/sword/archer/heavy/spy pop).
- *************************************************************************/
+javascript:
 
-// ───────────────────── relocate to member list if needed ─────────────────────
-if (window.location.href.indexOf('&screen=ally&mode=members') < 0 ||
-    window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
-    window.location.assign(game_data.link_base_pure + 'ally&mode=members');
+if (window.location.href.indexOf('&screen=ally&mode=members') < 0 || window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
+    //relocate
+    window.location.assign(game_data.link_base_pure + "ally&mode=members");
 }
 
-// ─────────────────────────── globals & defaults ──────────────────────────────
-const baseURL   = 'game.php?screen=ally&mode=members_troops&player_id=';
-const playerURLs = [], players = [], playerData = {}, totals = {};
-let
-    // defensive pop tiers (same as the old script)
-    fullPop     = 18000,
-    almostPop   = 15000,
-    halfPop     = 10000,
-    quarterPop  =  5000,
-    // Full-Atk thresholds
-    fullAtkAxe  = 6000,
-    fullAtkLC   = 2500,
-    fullAtkRam  =  300,
-    // Full-Atk + rams thresholds
-    plusAxe     = 6000,
-    plusLC      = 2500,
-    plusRam     = 1000,
-    // misc
-    fangSize    =  200,
-    scoutSize   = 4000;
-
-// ─────────────────────────── load / save settings ────────────────────────────
-const LS_KEY = 'settingsTribeMembersFullsAtk';
-(function readSettings () {
-    const stored = localStorage.getItem(LS_KEY);
-    if (stored) {
-        const s = JSON.parse(stored);
-        ({
-            fullPop, almostPop, halfPop, quarterPop,
-            fullAtkAxe, fullAtkLC, fullAtkRam,
-            plusAxe, plusLC, plusRam,
-            fangSize, scoutSize
-        } = s);
-    } else {
-        persistSettings();
-    }
-})();
-function persistSettings () {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-        fullPop, almostPop, halfPop, quarterPop,
-        fullAtkAxe, fullAtkLC, fullAtkRam,
-        plusAxe, plusLC, plusRam,
-        fangSize, scoutSize
-    }));
+var baseURL = `game.php?screen=ally&mode=members_troops&player_id=`;
+var playerURLs = [];
+var villageData = {};
+var playerData = {};
+var player = [];
+var typeTotals = {};
+//remove previous ran version of script if accidental doublelaunch
+$(".flex-container").remove();
+$("div[id*='player']").remove();
+// get/store settings
+if (localStorage.getItem("settingsTribeMembersFullAtk") != null) {
+    tempArray = JSON.parse(localStorage.getItem("settingsTribeMembersFullAtk"));
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    
 }
-
-// ───────────────────────── gather player IDs ────────────────────────────────
+else {
+    tempArray = [
+        { name: "minAxeAntiBunk", value: "4500" },
+        { name: "minLightAntiBunk", value: "2000" },
+        { name: "minRamAntiBunk", value: "1000" },
+        { name: "minAxeFullAtk", value: "4500" },
+        { name: "minLighFullAtk", value: "2000" },
+        { name: "minRamFullAtk", value: "300"}
+    ]
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
+}
+//collect all player names/ids
 $('input:radio[name=player]').each(function () {
-    playerURLs.push(baseURL + $(this).val());
-    players.push({ id: $(this).val(), name: $(this).parent().text().trim() });
+    playerURLs.push(baseURL + $(this).attr("value"));
+    player.push({ "id": $(this).attr("value"), "name": $(this).parent().text().trim() });
 });
 
-// ─────────────────────────── quick CSS injection ─────────────────────────────
-const css = `
+cssClassesSophie = `
 <style>
-.sophRowA{padding:10px;background:#32353b;color:#fff}
-.sophRowB{padding:10px;background:#36393f;color:#fff}
-.sophHeader{padding:10px;background:#202225;font-weight:bold;color:#fff}
-.sophTitle{background:#17181a}
-.collapsible{background:#32353b;color:#fff;cursor:pointer;padding:10px;width:100%;border:none;text-align:left;font-size:15px}
-.active,.collapsible:hover{background:#36393f}
-.collapsible:after{content:'+';float:right;font-weight:bold;margin-left:5px}
-.active:after{content:'-'}
-.content{padding:0 5px;max-height:0;overflow:hidden;transition:max-height .2s ease-out;background:#5b5f66;color:#fff}
-.item-padded{padding:5px}
-.flex-container{display:flex;justify-content:space-between;align-items:center}
-.submenu{display:flex;flex-direction:column;position:absolute;left:566px;top:53px;min-width:260px}
-</style>`;
-$('#contentContainer,#mobileHeader').first().prepend(css);
+.sophRowA {
+padding: 10px;
+background-color: #32353b;
+color: white;
+}
 
-// ─────────────────────────── utility: batched $.get ──────────────────────────
-$.getAll = function (urls, onLoad, onDone, onErr) {
-    let idx = 0, last = 0, gap = 200;
-    const next = () => {
-        if (idx === urls.length) return onDone();
-        const wait = gap - (Date.now() - last);
-        if (wait > 0) return setTimeout(next, wait);
-        $('#progress').css('width', ((idx + 1) / urls.length * 100) + '%');
-        last = Date.now();
-        $.get(urls[idx]).done(d => { onLoad(idx++, d); next(); })
-                        .fail(onErr);
-    };
-    next();
+.sophRowB {
+padding: 10px;
+background-color: #36393f;
+color: white;
+}
+.sophHeader {
+padding: 10px;
+background-color: #202225;
+font-weight: bold;
+color: white;
+}
+.sophTitle {
+background-color:  #17181a;
+}
+
+.collapsible {
+background-color: #32353b;
+color: white;
+cursor: pointer;
+padding: 10px;
+width: 100%;
+border: none;
+text-align: left;
+outline: none;
+font-size: 15px;
+}
+
+.active, .collapsible:hover {
+background-color:  #36393f;
+}
+
+.collapsible:after {
+content: '+';
+color: white;
+font-weight: bold;
+float: right;
+margin-left: 5px;
+}
+
+.active:after {
+content: "-";
+}
+
+.content {
+padding: 0 5px;
+max-height: 0;
+overflow: hidden;
+transition: max-height 0.2s ease-out;
+background-color:  #5b5f66;
+color: white;
+}
+
+.item-padded {
+padding: 5px;
+}
+
+.flex-container {
+display: flex; 
+justify-content: space-between;
+align-items:center
+}
+
+.submenu{
+    display:flex;
+    flex-direction:column;
+    position: absolute;
+    left:566px;
+    top:53px;
+    min-width:234px;
+}
+</style>`
+
+$("#contentContainer").eq(0).prepend(cssClassesSophie);
+$("#mobileHeader").eq(0).prepend(cssClassesSophie);
+
+$.getAll = function (
+    urls, // array of URLs
+    onLoad, // called when any URL is loaded, params (index, data)
+    onDone, // called when all URLs successfully loaded, no params
+    onError // called when a URL load fails or if onLoad throws an exception, params (error)
+) {
+    var numDone = 0;
+    var lastRequestTime = 0;
+    var minWaitTime = 200; // ms between requests
+    loadNext();
+    function loadNext() {
+        if (numDone == urls.length) {
+            onDone();
+            return;
+        }
+
+        let now = Date.now();
+        let timeElapsed = now - lastRequestTime;
+        if (timeElapsed < minWaitTime) {
+            let timeRemaining = minWaitTime - timeElapsed;
+            setTimeout(loadNext, timeRemaining);
+            return;
+        }
+        $("#progress").css("width", `${(numDone + 1) / urls.length * 100}%`);
+        lastRequestTime = now;
+        $.get(urls[numDone])
+            .done((data) => {
+                try {
+                    onLoad(numDone, data);
+                    ++numDone;
+                    loadNext();
+                } catch (e) {
+                    onError(e);
+                }
+            })
+            .fail((xhr) => {
+                onError(xhr);
+            })
+    }
 };
 
-// ─────────────────────────── main data collection ────────────────────────────
-function collect () {
-    $('#contentContainer').prepend(
-      `<div id="progressbar" style="width:100%;background:#36393f">
-         <div id="progress" style="width:0%;height:35px;background:#4CAF50;line-height:32px"></div>
-       </div>`
-    );
+function calculateEverything() {
+    //progress bar
+    $("#contentContainer").eq(0).prepend(`
+    <div id="progressbar" style="width: 100%;
+    background-color: #36393f;"><div id="progress" style="width: 0%;
+    height: 35px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 32px;
+    color: black;"></div>
+    </div>`);
+    $("#mobileHeader").eq(0).prepend(`
+    <div id="progressbar" style="width: 100%;
+    background-color: #36393f;"><div id="progress" style="width: 0%;
+    height: 35px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 32px;
+    color: black;"></div>
+    </div>`);
+
+    // collect all data from every player
     $.getAll(playerURLs,
-        (i, page) => grabPlayer(i, page),
-        () => { $('#progressbar').remove(); buildUI(); },
-        console.error
-    );
-}
-function grabPlayer (idx, firstPage) {
-    const pages = [];
-    const nav = $(firstPage).find('.paged-nav-item');
-    for (let p = 0; p < nav.length / 2; ++p) pages.push(nav.eq(p).attr('href'));
+        (i, data) => {
+            console.log("Grabbing player nr " + i);
+            console.log("Grabbing page nr 0");
+            
+            villageData = {};
+            villageData["total"] = {}
+            //grab village rows
+            if ($(data).find(".paged-nav-item").length == 0) {
+                rows = $(data).find(".vis.w100 tr").not(':first');
+            }
+            else {
+                rows = $(data).find(".vis.w100 tr").not(':first').not(":first").not(":last");
+            }
 
-    const rows = [];
-    const pushRows = pg => {
-        const base = $(pg).find('.vis.w100 tr');
-        const slice = nav.length ? base.not(':first,:first,:last') : base.not(':first');
-        $.merge(rows, slice);
-    };
-    pushRows(firstPage);
+            //grab extra pages if there are any
+            var allPages = []
+            for (var pages = 0; pages < $(data).find(".paged-nav-item").length / 2; pages++) {
+                allPages.push($(data).find(".paged-nav-item").eq(pages).attr("href"));
+            }
+            console.log(allPages);
+            $.getAll(allPages,
+                (p, getMore) => {
+                    console.log("Grabbing page nr " + (p+1));
+                    
+                    if ($(getMore).find(".paged-nav-item").length == 0) {
+                        rows = $.merge(rows,$(getMore).find(".vis.w100 tr").not(':first'));
+                    }
+                    else {
+                        rows = $.merge(rows,$(getMore).find(".vis.w100 tr").not(':first').not(":first").not(":last"));
+                    }
 
-    $.getAll(pages,
-        (__, pg) => pushRows(pg),
-        () => parseRows(idx, rows),
-        console.error
-    );
-}
-function parseRows (idx, rows) {
-    const pdata = { total:{} };
-    game_data.units.forEach(u => pdata.total[u] = 0);
+                },
+                () => {
+                    console.log("Rows for player "+player[i].name+ " total: "+rows.length);
+                    //create empty total object
+                    $.each(game_data.units, function (index) {
+                        unitName = game_data.units[index];
+                        villageData["total"][unitName] = 0;
+                    })
+                    //get all unit data
+                    $.each(rows, function (rowNr) {
+                        thisID = rows.eq(rowNr).find("a")[0].outerHTML.match(/id=(\d*)/)[1];
+                        villageData[thisID] = [];
+                        $.each(game_data.units, function (index) {
+                            unitName = game_data.units[index];
+                            if (rows.eq(rowNr).children().not(':first').eq(index).text().trim() != '?') {
+                                villageData[thisID][unitName] = rows.eq(rowNr).children().not(':first').eq(index).text().trim();
+                                villageData["total"][unitName] += parseInt(rows.eq(rowNr).children().not(':first').eq(index).text().trim());
+                            }
+                            else {
+                                villageData[thisID][unitName] = 0;
+                                villageData["total"][unitName] += 0;
+                            }
+                        })
+                    });
 
-    rows.forEach(row => {
-        const $r = $(row);
+                    playerData[player[i].name] = villageData;
+                    // set up total nuke/DV counts at 0 to start
+                    typeTotals[player[i].name] = { "AntiBunk": 0, "FullAtk": 0};
+                },
+                (error) => {
+                    console.error(error);
+                });
 
-        /* ---------- FIXED village-id extraction ---------- */
-        const href = ($r.find('a[href*="info_village"]')[0] || {}).href || '';
-        const m    = href.match(/[?&]id=(\d+)/);
-        if (!m) return;                     // skip rows without an id
-        const vId = m[1];
-        /* -------------------------------------------------- */
 
-        pdata[vId] = {};
-        game_data.units.forEach((u,i)=>{
-            const val = +$r.children().not(':first').eq(i+1).text().trim().replace(/\D/g,'')||0;
-            pdata[vId][u] = val;
-            pdata.total[u]+= val;
+
+        },
+        () => {
+            $("#progressbar").remove();
+            displayEverything();
+        },
+        (error) => {
+            console.error(error);
         });
+}
+
+calculateEverything();
+function makeThingsCollapsible() {
+    var coll = $(".collapsible");
+    for (var i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function () {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
+    }
+}
+function numberWithCommas(x) {
+    // add . to make numbers more readable
+    x = x.toString();
+    var pattern = /(-?\d+)(\d{3})/;
+    while (pattern.test(x))
+        x = x.replace(pattern, "$1.$2");
+    return x;
+}
+
+function saveSettings() {
+
+    tempArray = $("#settings").serializeArray();
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
+    $(".flex-container").remove();
+    $("div[id*='player']").remove();
+    displayEverything();
+}
+
+function displayEverything() {
+    html = `
+    <div class="sophTitle sophHeader flex-container" style="width: 800px;position: relative">
+        <div class="sophTitle sophHeader" style="width: 550px;min-width: 520px;"><font size="5">Full Atk / Anti Bunk tribe counter </font></div>
+        <button class="sophRowA collapsible" style="width: 250px;min-width: 230px;">Open settings menu</button>
+        <div class="content submenu" style="width: 200px;height:500px;z-index:99999">
+            <form id="settings">
+                <table style="border-spacing: 2px;">
+                <tr>
+                <td style="padding: 6px;">
+                <label for="minAxeAntiBunk">Minimum Axe units for Anti Bunk</label></td><td style="padding: 6px;"><input type="text" name="minAxeAntiBunk" value="${minAxeAntiBunk}" style="width:92px" /> units</td></tr>
+                <tr>
+                <td style="padding: 6px;">
+                <label for="minLightAntiBunk">Minimum Cav light units for Anti Bunk</label></td><td style="padding: 6px;"><input type="text" name="minLightAntiBunk" value="${minLightAntiBunk}" style="width:92px"/> units</td></tr>
+                <tr>
+                <td style="padding: 6px;">
+                <label for="minRamAntiBunk">Minimum Ram units for Anti Bunk</label></td><td style="padding: 6px;"><input type="text" name="minRamAntiBunk" value="${minRamAntiBunk}" style="width:92px"/> units</td></tr>
+                <tr>
+                <td style="padding: 6px;">
+                <label for="minAxeFullAtk">Minimum Axe units for Full Atk</label></td><td style="padding: 6px;"><input type="text" name="minAxeFullAtk" value="${minAxeFullAtk}" style="width:92px"/> units</td></tr>
+                <tr>
+                <td style="padding: 6px;">
+                <label for="minLightFullAtk">Minimum Cav light units for Full Atk</label></td><td style="padding: 6px;"><input type="text" name="minLightFullAtk" value="${ minLightFullAtk}" style="width:84px"/> units</td></tr>
+                <tr>
+                <td style="padding: 6px;">
+                <label for="minRamFullAtk">Minimum Ram units for Full Atk</label></td><td style="padding: 6px;"><input type="text" name="minRamFullAtk" value="${minRamFullAtk}" style="width:84px"/> units</td></tr>
+                <tr>
+                <td style="padding: 6px;">
+                <input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="saveSettings();"/></td></tr>
+                <td colspan="2" style="padding: 6px;">
+                </td>
+                </table>
+            </form>
+        </div> 
+    </div>`;
+    //display the data in a neat UI
+    $.each(player, function (play) {
+        typeTotals[player[play].name] = { "AntiBunk": 0, "FullAtk": 0};
     });
 
-    playerData[players[idx].name] = pdata;
-    totals[players[idx].name] = {
-        fullAtk:0, plusAtk:0,
-        fullDV:0, almostDV:0, semiDV:0, quarterDV:0,
-        train:0, fang:0, scout:0
-    };
-}
+    $.each(playerData, function (playerName) {
+        //calculate nuke and DV counts
+        for (var villageCounter = 0; villageCounter < Object.keys(playerData[playerName]).length; villageCounter++) {
+            if (Object.keys(playerData[playerName])[villageCounter] != "total") {
+                //check what kind of village we're dealing with
 
-// ────────────────────────── build the interface ──────────────────────────────
-function buildUI () {
-    // ── settings menu ──
-    const settingsHTML = `
-<div class="sophTitle sophHeader flex-container" style="width:800px;position:relative">
-  <div class="sophTitle sophHeader" style="width:550px"><font size="5">Tribe member troop counter</font></div>
-  <button class="sophRowA collapsible" style="width:250px">Open settings</button>
-  <div class="content submenu">
-   <form id="settings">
-    <button type="button" class="collapsible">Full Atk thresholds</button>
-    <div class="content">
-      <table><tr><td>Axe ≥</td><td><input name="fullAtkAxe" value="${fullAtkAxe}" style="width:80px"></td></tr>
-             <tr><td>LC ≥</td><td> <input name="fullAtkLC"  value="${fullAtkLC}"  style="width:80px"></td></tr>
-             <tr><td>Rams ≥</td><td><input name="fullAtkRam" value="${fullAtkRam}" style="width:80px"></td></tr></table>
-    </div>
-    <button type="button" class="collapsible">Full Atk + rams</button>
-    <div class="content">
-      <table><tr><td>Axe ≥</td><td><input name="plusAxe" value="${plusAxe}" style="width:80px"></td></tr>
-             <tr><td>LC ≥</td><td> <input name="plusLC"  value="${plusLC}"  style="width:80px"></td></tr>
-             <tr><td>Rams ≥</td><td><input name="plusRam" value="${plusRam}" style="width:80px"></td></tr></table>
-    </div>
-    <button type="button" class="collapsible">Def pop & misc</button>
-    <div class="content">
-      <table><tr><td>Full DV</td><td><input name="fullPop" value="${fullPop}" style="width:80px"> pop</td></tr>
-             <tr><td>¾ DV</td><td>   <input name="almostPop" value="${almostPop}" style="width:80px"></td></tr>
-             <tr><td>½ DV</td><td>   <input name="halfPop" value="${halfPop}" style="width:80px"></td></tr>
-             <tr><td>¼ DV</td><td>   <input name="quarterPop" value="${quarterPop}" style="width:80px"></td></tr>
-             <tr><td>Fang ≥</td><td> <input name="fangSize" value="${fangSize}" style="width:80px"></td></tr>
-             <tr><td>Scout ≥</td><td><input name="scoutSize" value="${scoutSize}" style="width:80px"></td></tr></table>
-    </div>
-    <p style="padding:8px"><input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="saveSettings();"></p>
-   </form>
-  </div>
-</div>`;
-    $('#contentContainer').prepend(settingsHTML);
+                thisVillageAxeUnits = 0;
+                thisVillageLightUnits = 0;
+                thisVillageRamUnits = 0;
+                for (var lol = 0; lol < game_data.units.length; lol++) {
+                    switch (Object.keys(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]])[lol]) {
+                        case "spear":
+                            break;
+                        case "sword":
+                            break;
+                        case "archer":
+                            break;
+                        case "axe":
+                            thisVillageAxeUnits += parseInt(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]][game_data.units[lol]]);
+                            break;
+                        case "spy":
+                            break;
+                        case "light":
+                            thisVillageLightUnits += parseInt(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]][game_data.units[lol]]);
+                            break;
+                        case "marcher":
+                            break;
+                        case "ram":
+                            thisVillageRamUnits += parseInt(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]][game_data.units[lol]]);
+                            break;
+                        case "heavy":
+                       
+                            break;
+                        case "catapult":
+                            break;
+                        case "snob":
+                            break;
+                        default:
+                            //militia/paladin left
+                            break;
+                    }
+                }
 
-    // ── classify villages ──
-    players.forEach(pl => {
-        const pName = pl.name, pData = playerData[pName], t = totals[pName];
-        Object.keys(pData).forEach(vID => {
-            if (vID === 'total') return;
-            const v = pData[vID];
-            const axe=v.axe||0, lc=v.light||0, r=v.ram||0;
+                //calculate here how many villages belong to which category
 
-            const plusOK  = (axe>=plusAxe  && lc>=plusLC  && r>=plusRam);
-            const fullOK  = (!plusOK) && (axe>=fullAtkAxe && lc>=fullAtkLC && r>=fullAtkRam);
-            if (plusOK) t.plusAtk++; else if (fullOK) t.fullAtk++;
+                //AntiBunk
+                if (thisVillageAxeUnits >= minAxeAntiBunk && thisVillageLightUnits >= minLightAntiBunk && thisVillageRamUnits >= minRamAntiBunk) typeTotals[playerName]["AntiBunk"] += 1;
 
-            // defensive pop
-            const defPop = v.spear + v.sword + v.archer + 6*(v.heavy||0) + 2*(v.spy||0);
-            if      (defPop>=fullPop)    t.fullDV++;
-            else if (defPop>=almostPop)  t.almostDV++;
-            else if (defPop>=halfPop)    t.semiDV++;
-            else if (defPop>=quarterPop) t.quarterDV++;
+                //FullAtk
+                if (thisVillageAxeUnits >= minAxeFullAtk && thisVillageLightUnits >= minLightFullAtk && thisVillageRamUnits >= minRamFullAtk && thisVillageRamUnits < minRamAntiBunk) typeTotals[playerName]["FullAtk"] += 1;
 
-            if ((v.snob||0)>=4)        t.train++;
-            if ((v.catapult||0)>fangSize) t.fang++;
-            if ((v.spy||0)>scoutSize)  t.scout++;
+           
+
+            }
+        }
+
+        html += `
+        <div id='player${playerName}' class="sophHeader" style="float: left;width: 800px;">
+            <p style="padding:10px">${playerName}</p>
+            <div class="sophRowA" width="760px">
+            <table width="100%"><tr><td><table>`
+        offTable = "";
+        defTable = "";
+        other = "";
+        $.each(typeTotals[playerName], function (type) {
+            switch (type) {
+                case "AntiBunk":
+                    offTable += `<tr><td class="item-padded">Full Anti Bunk: </td><td class="item-padded">${typeTotals[playerName][type]}</td></tr>`
+                    break;
+                case "FullAtk":
+                    offTable += `<tr><td class="item-padded">Full Atk Normal: </td><td class="item-padded">${typeTotals[playerName][type]}</td></tr>`
+                    break;
+                default:
+                    console.log("Rip in pepperonis")
+                    break;
+            }
         });
-    });
 
-    // ── output per player ──
-    let html = '';
-    players.forEach(pl => {
-        const pName = pl.name, t = totals[pName];
-        html += `<div id="player${pName}" class="sophHeader" style="width:800px">
-  <p style="padding:10px">${pName}</p>
-  <div class="sophRowA"><table width="100%"><tr>
-    <td><table>
-      <tr><td class="item-padded">Full Atk:</td><td class="item-padded">${t.fullAtk}</td></tr>
-      <tr><td class="item-padded">Full Atk + rams:</td><td class="item-padded">${t.plusAtk}</td></tr>
-    </table></td>
-    <td><table>
-      <tr><td class="item-padded">Full DV:</td><td class="item-padded">${t.fullDV}</td></tr>
-      <tr><td class="item-padded">¾ DV:</td><td class="item-padded">${t.almostDV}</td></tr>
-      <tr><td class="item-padded">½ DV:</td><td class="item-padded">${t.semiDV}</td></tr>
-      <tr><td class="item-padded">¼ DV:</td><td class="item-padded">${t.quarterDV}</td></tr>
-    </table></td>
-    <td><table>
-      <tr><td class="item-padded">Trains:</td><td class="item-padded">${t.train}</td></tr>
-      <tr><td class="item-padded">Fangs:</td><td class="item-padded">${t.fang}</td></tr>
-      <tr><td class="item-padded">Scout vil:</td><td class="item-padded">${t.scout}</td></tr>
-    </table></td></tr></table></div>
-  <button class="collapsible">More details</button>
-  <div class="content"><table><tr>`;
-        Object.entries(playerData[pName].total).forEach(([u,c],i) => {
-            if (['spy','ram','snob'].includes(u) && i) html += '</tr><tr>';
-            html += `<td><table><tr><td class="item-padded">
-               <img src="/graphic/unit/unit_${u}.png" title="${u}"></td>
-               <td class="item-padded">${c.toLocaleString('de')}</td></tr></table></td>`;
-        });
+        html += offTable + "</table></td><td><table>" + defTable + "</table></td><td><table>" + other;
+        html += `</table></td></tr></table>
+                </div>
+                <button class="collapsible">More details</button>
+                <div class="content"><table><tr>`;
+        $.each(playerData[playerName]["total"], function (troopName) {
+            if (troopName == "spy" || troopName == "ram" || troopName == "snob") {
+                html += '</tr><tr>'
+            }
+            html += `<td><table><tr><td class="item-padded"><img src="/graphic/unit/unit_${troopName}.png" title="${troopName}" alt="" class=""></td>
+                <td class="item-padded">${numberWithCommas(playerData[playerName]["total"][troopName])}</td></tr></table></td>`
+        })
+
         html += `</tr></table></div></div>`;
     });
-    $('#contentContainer').append(html);
-    enableCollapsibles();
-}
 
-// ────────────────────────── misc helpers ────────────────────────────
-function enableCollapsibles () {
-    document.querySelectorAll('.collapsible').forEach(btn =>
-        btn.addEventListener('click', function () {
-            this.classList.toggle('active');
-            const c = this.nextElementSibling;
-            c.style.maxHeight = c.style.maxHeight ? null : c.scrollHeight + 'px';
-        })
-    );
+    $("#contentContainer").prepend(html);
+    makeThingsCollapsible();
 }
-function saveSettings () {
-    const m = Object.fromEntries($('#settings').serializeArray().map(o => [o.name,+o.value]));
-    ({
-        fullPop, almostPop, halfPop, quarterPop,
-        fullAtkAxe, fullAtkLC, fullAtkRam,
-        plusAxe, plusLC, plusRam,
-        fangSize, scoutSize
-    } = m);
-    persistSettings();
-    $('.flex-container').remove(); $('[id^=player]').remove();
-    buildUI();
-}
-
-// ──────────────────────────── run! ──────────────────────────────────
-collect();
-
