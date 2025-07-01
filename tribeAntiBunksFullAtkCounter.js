@@ -464,7 +464,7 @@ function displayEverything() {
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
-                        <table class="village-list-table">
+                        <table width="100%" class="village-list-table">
                             <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
                             ${abRows || '<tr><td class="item-padded" colspan="4">—</td></tr>'}
                         </table>
@@ -484,7 +484,7 @@ function displayEverything() {
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
-                        <table class="village-list-table">
+                        <table width="100%" class="village-list-table">
                             <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
                             ${faRows || '<tr><td class="item-padded" >—</td></tr>'}
                         </table>
