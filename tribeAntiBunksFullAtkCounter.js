@@ -127,6 +127,37 @@ align-items:center
     top:53px;
     min-width:234px;
 }
+
+.village-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.village-list-table thead th {
+    background-color: #202225;
+    color: #e0e0e0;
+    padding: 10px;
+    border-bottom: 2px solid #4CAF50; /* Green accent line */
+}
+
+.village-list-table tbody tr:nth-child(even) {
+    background-color: #36393f;
+}
+
+.village-list-table tbody tr:nth-child(odd) {
+    background-color: #32353b;
+}
+
+.village-list-table td {
+    padding: 8px 10px;
+    border-top: 1px solid #4f545c;
+}
+
+
+.village-list-table th:nth-child(1), .village-list-table td:nth-child(1) { text-align: left; } /* Village */
+.village-list-table th:nth-child(n+2), .village-list-table td:nth-child(n+2) { text-align: right; } /* Axe, LC, Ram (and any future numeric columns) */
 </style>`
 
 $("#contentContainer").eq(0).prepend(cssClassesSophie);
@@ -410,7 +441,7 @@ function displayEverything() {
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
-                        <table>
+                        <table class="village-list-table">
                             <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
                             ${abRows || '<tr><td class="item-padded" colspan="4">—</td></tr>'}
                         </table>
@@ -430,7 +461,7 @@ function displayEverything() {
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
-                        <table>
+                        <table class="village-list-table">
                             <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
                             ${faRows || '<tr><td class="item-padded" colspan="4">—</td></tr>'}
                         </table>
