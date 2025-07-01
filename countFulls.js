@@ -1,211 +1,279 @@
-(function () {
-    "use strict";
+/*************************************************************************
+ * Tribe member troop counter – troop-based version
+ * Original by Sophie “Shinko to Kuma”, refactored July 2025
+ * ----------------------------------------------------------------------
+ *  ➤ OFF buckets use raw counts:
+ *      – Full Atk               axe ≥ fullAtkAxe  &&  lc ≥ fullAtkLC  &&  ram ≥ fullAtkRam
+ *      – Full Atk + rams        axe ≥ plusAxe     &&  lc ≥ plusLC     &&  ram ≥ plusRam
+ *        (villages that pass the second test are *not* counted in the first)
+ *  ➤ DEF buckets still use population (spear/sword/archer/heavy/spy pop).
+ *************************************************************************/
 
-    /* ------------------------------------------------------------------
-       0.  ROUTE TO ALLY‑MEMBERS PAGE IF NEEDED
-    -------------------------------------------------------------------*/
-    if (
-        window.location.href.indexOf("&screen=ally&mode=members") < 0 ||
-        window.location.href.indexOf("&screen=ally&mode=members_troops") > -1
-    ) {
-        window.location.assign(game_data.link_base_pure + "ally&mode=members");
-    }
+// ───────────────────── relocate to member list if needed ─────────────────────
+if (window.location.href.indexOf('&screen=ally&mode=members') < 0 ||
+    window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
+    window.location.assign(game_data.link_base_pure + 'ally&mode=members');
+}
 
-    /* ------------------------------------------------------------------
-       1.  GLOBALS & STORAGE
-    -------------------------------------------------------------------*/
-    const SETTINGS_KEY = "settingsTribeFulls";
+// ─────────────────────────── globals & defaults ──────────────────────────────
+const baseURL   = 'game.php?screen=ally&mode=members_troops&player_id=';
+const playerURLs = [], players = [], playerData = {}, totals = {};
+let
+    // defensive pop tiers (same as the old script)
+    fullPop     = 18000,
+    almostPop   = 15000,
+    halfPop     = 10000,
+    quarterPop  =  5000,
+    // Full-Atk thresholds
+    fullAtkAxe  = 6000,
+    fullAtkLC   = 2500,
+    fullAtkRam  =  300,
+    // Full-Atk + rams thresholds
+    plusAxe     = 6000,
+    plusLC      = 2500,
+    plusRam     = 1000,
+    // misc
+    fangSize    =  200,
+    scoutSize   = 4000;
 
-    // defaults
-    let axeMin   = 6000;
-    let lcMin    = 2500;
-    let ramMin   = 300;
-
-    // Restore saved thresholds
-    if (localStorage.getItem(SETTINGS_KEY)) {
-        try {
-            const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-            axeMin = +s[0].value;
-            lcMin  = +s[1].value;
-            ramMin = +s[2].value;
-        } catch (e) { console.warn("Settings read fail", e); }
+// ─────────────────────────── load / save settings ────────────────────────────
+const LS_KEY = 'settingsTribeMembersFullsAtk';
+(function readSettings () {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored) {
+        const s = JSON.parse(stored);
+        ({
+            fullPop, almostPop, halfPop, quarterPop,
+            fullAtkAxe, fullAtkLC, fullAtkRam,
+            plusAxe, plusLC, plusRam,
+            fangSize, scoutSize
+        } = s);
     } else {
-        // store defaults so they appear first‑run in the menu
-        localStorage.setItem(
-            SETTINGS_KEY,
-            JSON.stringify([
-                { name: "axeMin", value: axeMin.toString() },
-                { name: "lcMin",  value: lcMin.toString()  },
-                { name: "ramMin", value: ramMin.toString() }
-            ])
-        );
+        persistSettings();
     }
+})();
+function persistSettings () {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+        fullPop, almostPop, halfPop, quarterPop,
+        fullAtkAxe, fullAtkLC, fullAtkRam,
+        plusAxe, plusLC, plusRam,
+        fangSize, scoutSize
+    }));
+}
 
-    const baseURL   = `game.php?screen=ally&mode=members_troops&player_id=`;
-    const playerURLs = [];
-    const players    = []; // {id,name}
-    const playerData = {}; // raw village unit dump
-    const fullTotals = {}; // per‑player count
-    let tribeFullSum = 0;
+// ───────────────────────── gather player IDs ────────────────────────────────
+$('input:radio[name=player]').each(function () {
+    playerURLs.push(baseURL + $(this).val());
+    players.push({ id: $(this).val(), name: $(this).parent().text().trim() });
+});
 
-    // cleanup in case of double‑launch
-    $(".flex-container").remove();
-    $("div[id*='player']").remove();
-
-    // Collect members
-    $("input:radio[name=player]").each(function () {
-        const id = this.value;
-        const name = $(this).parent().text().trim();
-        playerURLs.push(baseURL + id);
-        players.push({ id, name });
-    });
-
-    /* ------------------------------------------------------------------
-       2.  DARK CSS (same as Sophie style)
-    -------------------------------------------------------------------*/
-    const css = `
+// ─────────────────────────── quick CSS injection ─────────────────────────────
+const css = `
 <style>
 .sophRowA{padding:10px;background:#32353b;color:#fff}
+.sophRowB{padding:10px;background:#36393f;color:#fff}
 .sophHeader{padding:10px;background:#202225;font-weight:bold;color:#fff}
 .sophTitle{background:#17181a}
 .collapsible{background:#32353b;color:#fff;cursor:pointer;padding:10px;width:100%;border:none;text-align:left;font-size:15px}
 .active,.collapsible:hover{background:#36393f}
-.collapsible:after{content:'+';float:right;margin-left:5px;font-weight:bold}
+.collapsible:after{content:'+';float:right;font-weight:bold;margin-left:5px}
 .active:after{content:'-'}
 .content{padding:0 5px;max-height:0;overflow:hidden;transition:max-height .2s ease-out;background:#5b5f66;color:#fff}
 .item-padded{padding:5px}
 .flex-container{display:flex;justify-content:space-between;align-items:center}
-.submenu{display:flex;flex-direction:column;position:absolute;left:566px;top:53px;min-width:234px}
+.submenu{display:flex;flex-direction:column;position:absolute;left:566px;top:53px;min-width:260px}
 </style>`;
-    $("#contentContainer,#mobileHeader").first().prepend(css);
+$('#contentContainer,#mobileHeader').first().prepend(css);
 
-    /* ------------------------------------------------------------------
-       3.  HELPER – batch GET with polite delay
-    -------------------------------------------------------------------*/
-    $.getAll = function (urls, per, done, fail) {
-        let idx = 0, last = 0;
-        const wait = 200;
-        (function next () {
-            if (idx === urls.length) return done();
-            const now = Date.now();
-            if (now - last < wait) return setTimeout(next, wait - (now - last));
-            $("#progress").css("width", `${((idx + 1) / urls.length) * 100}%`);
-            last = now;
-            $.get(urls[idx])
-                .done(d => { try { per(idx, d); ++idx; next(); } catch (e) { fail(e); } })
-                .fail(fail);
-        })();
+// ─────────────────────────── utility: batched $.get ──────────────────────────
+$.getAll = function (urls, onLoad, onDone, onErr) {
+    let idx = 0, last = 0, gap = 200;
+    const next = () => {
+        if (idx === urls.length) return onDone();
+        const wait = gap - (Date.now() - last);
+        if (wait > 0) return setTimeout(next, wait);
+        $('#progress').css('width', ((idx + 1) / urls.length * 100) + '%');
+        last = Date.now();
+        $.get(urls[idx]).done(d => { onLoad(idx++, d); next(); })
+                        .fail(onErr);
     };
+    next();
+};
 
-    const commas = x => x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+// ─────────────────────────── main data collection ────────────────────────────
+function collect () {
+    $('#contentContainer').prepend(
+      `<div id="progressbar" style="width:100%;background:#36393f">
+         <div id="progress" style="width:0%;height:35px;background:#4CAF50;line-height:32px"></div>
+       </div>`
+    );
+    $.getAll(playerURLs,
+        (i, page) => grabPlayer(i, page),
+        () => { $('#progressbar').remove(); buildUI(); },
+        console.error
+    );
+}
+function grabPlayer (idx, firstPage) {
+    const pages = [];
+    const nav = $(firstPage).find('.paged-nav-item');
+    for (let p = 0; p < nav.length / 2; ++p) pages.push(nav.eq(p).attr('href'));
 
-    /* ------------------------------------------------------------------
-       4.  SAVE SETTINGS
-    -------------------------------------------------------------------*/
-    function saveSettings () {
-        const arr = $("#settings").serializeArray();
-        axeMin = +arr[0].value;
-        lcMin  = +arr[1].value;
-        ramMin = +arr[2].value;
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(arr));
-        $(".flex-container, div[id*='player']").remove();
-        tribeFullSum = 0;
-        displayEverything();
-    }
-    window.saveFullSettings = saveSettings; // expose for HTML onclick
+    const rows = [];
+    const pushRows = pg => {
+        const base = $(pg).find('.vis.w100 tr');
+        const slice = nav.length ? base.not(':first,:first,:last') : base.not(':first');
+        $.merge(rows, slice);
+    };
+    pushRows(firstPage);
 
-    function hookCollapsibles () {
-        $(".collapsible").each(function () {
-            this.onclick = function () {
-                this.classList.toggle("active");
-                const c = this.nextElementSibling;
-                c.style.maxHeight = c.style.maxHeight ? null : `${c.scrollHeight}px`;
-            };
+    $.getAll(pages,
+        (__, pg) => pushRows(pg),
+        () => parseRows(idx, rows),
+        console.error
+    );
+}
+function parseRows (idx, rows) {
+    const pdata = { total:{} };
+    game_data.units.forEach(u => pdata.total[u] = 0);
+
+    rows.forEach(row => {
+        const $r = $(row);
+        const vId = $r.find('a')[0].outerHTML.match(/id=(\\d+)/)[1];
+        pdata[vId] = {};
+        game_data.units.forEach((u, i) => {
+            const val = +$r.children().not(':first').eq(i + 1).text().trim().replace(/\\D/g,'') || 0;
+            pdata[vId][u] = val;
+            pdata.total[u] += val;
         });
-    }
+    });
+    playerData[players[idx].name] = pdata;
+    totals[players[idx].name] = {
+        fullAtk:0, plusAtk:0,
+        fullDV:0, almostDV:0, semiDV:0, quarterDV:0,
+        train:0, fang:0, scout:0
+    };
+}
 
-    /* ------------------------------------------------------------------
-       5.  MAIN DATA‑GRAB LOGIC (calculateEverything)
-    -------------------------------------------------------------------*/
-    function calculateEverything () {
-        const bar = `<div id="progressbar" style="width:100%;background:#36393f"><div id="progress" style="width:0%;height:35px;background:#4CAF50;line-height:32px;text-align:center;color:black"></div></div>`;
-        $("#contentContainer,#mobileHeader").first().prepend(bar);
-
-        $.getAll(
-            playerURLs,
-            (i, doc) => {
-                const pname = players[i].name;
-                fullTotals[pname] = { full: 0 };
-
-                const rowsIn = d =>
-                    $(d).find(".vis.w100 tr").not(":first").not(":last");
-
-                let rows = rowsIn(doc);
-
-                // extra pages
-                const extra = $(doc).find(".paged-nav-item").map((_, el) => $(el).attr("href")).get();
-                const extraPages = extra.slice(0, extra.length / 2);
-
-                $.getAll(
-                    extraPages,
-                    (_, pg) => { rows = $.merge(rows, rowsIn(pg)); },
-                    () => {
-                        // iterate villages
-                        rows.each(function () {
-                            const cells = $(this).children();
-                            if (!cells.length) return;
-                            const unitIdx = u => game_data.units.indexOf(u);
-                            const get = u => parseInt(cells.not(":first").eq(unitIdx(u)).text().trim().replace(/\D/g, "")) || 0;
-                            const axe = get("axe"), lc = get("light"), ram = get("ram");
-                            if (axe >= axeMin && lc >= lcMin && ram >= ramMin) {
-                                fullTotals[pname].full += 1;
-                                tribeFullSum += 1;
-                            }
-                        });
-                    },
-                    console.error
-                );
-            },
-            () => { $("#progressbar").remove(); displayEverything(); },
-            console.error
-        );
-    }
-
-    /* ------------------------------------------------------------------
-       6.  DISPLAY (displayEverything)
-    -------------------------------------------------------------------*/
-    function displayEverything () {
-        // header + settings UI
-        let html = `
+// ────────────────────────── build the interface ──────────────────────────────
+function buildUI () {
+    // ── settings menu ──
+    const settingsHTML = `
 <div class="sophTitle sophHeader flex-container" style="width:800px;position:relative">
-  <div class="sophHeader" style="width:550px;min-width:520px"><font size="5">Tribe Full‑Nuke Counter</font></div>
-  <button class="sophRowA collapsible" style="width:250px;min-width:230px">Open settings</button>
-  <div class="content submenu" style="width:200px;height:260px;z-index:99999">
-    <form id="settings">
-      <table style="border-spacing:2px">
-        <tr><td class="item-padded"><label>Axe ≥</label></td><td class="item-padded"><input type="text" name="axeMin" value="${axeMin}" style="width:92px"> u</td></tr>
-        <tr><td class="item-padded"><label>Light ≥</label></td><td class="item-padded"><input type="text" name="lcMin"  value="${lcMin}" style="width:92px"> u</td></tr>
-        <tr><td class="item-padded"><label>Ram ≥</label></td><td class="item-padded"><input type="text" name="ramMin" value="${ramMin}" style="width:92px"> u</td></tr>
-        <tr><td colspan="2" class="item-padded"><input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="window.saveFullSettings()"></td></tr>
-        <tr><td colspan="2" class="item-padded"><font size="1">Based on Shinko to Kuma</font></td></tr>
-      </table>
-    </form>
+  <div class="sophTitle sophHeader" style="width:550px"><font size="5">Tribe member troop counter</font></div>
+  <button class="sophRowA collapsible" style="width:250px">Open settings</button>
+  <div class="content submenu">
+   <form id="settings">
+    <button type="button" class="collapsible">Full Atk thresholds</button>
+    <div class="content">
+      <table><tr><td>Axe ≥</td><td><input name="fullAtkAxe" value="${fullAtkAxe}" style="width:80px"></td></tr>
+             <tr><td>LC ≥</td><td> <input name="fullAtkLC"  value="${fullAtkLC}"  style="width:80px"></td></tr>
+             <tr><td>Rams ≥</td><td><input name="fullAtkRam" value="${fullAtkRam}" style="width:80px"></td></tr></table>
+    </div>
+    <button type="button" class="collapsible">Full Atk + rams</button>
+    <div class="content">
+      <table><tr><td>Axe ≥</td><td><input name="plusAxe" value="${plusAxe}" style="width:80px"></td></tr>
+             <tr><td>LC ≥</td><td> <input name="plusLC"  value="${plusLC}"  style="width:80px"></td></tr>
+             <tr><td>Rams ≥</td><td><input name="plusRam" value="${plusRam}" style="width:80px"></td></tr></table>
+    </div>
+    <button type="button" class="collapsible">Def pop & misc</button>
+    <div class="content">
+      <table><tr><td>Full DV</td><td><input name="fullPop" value="${fullPop}" style="width:80px"> pop</td></tr>
+             <tr><td>¾ DV</td><td>   <input name="almostPop" value="${almostPop}" style="width:80px"></td></tr>
+             <tr><td>½ DV</td><td>   <input name="halfPop" value="${halfPop}" style="width:80px"></td></tr>
+             <tr><td>¼ DV</td><td>   <input name="quarterPop" value="${quarterPop}" style="width:80px"></td></tr>
+             <tr><td>Fang ≥</td><td> <input name="fangSize" value="${fangSize}" style="width:80px"></td></tr>
+             <tr><td>Scout ≥</td><td><input name="scoutSize" value="${scoutSize}" style="width:80px"></td></tr></table>
+    </div>
+    <p style="padding:8px"><input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="saveSettings();"></p>
+   </form>
   </div>
-</div>
-<div class="sophHeader" style="width:800px;margin-top:5px">Tribe total full nukes: <b>${commas(tribeFullSum)}</b></div>`;
+</div>`;
+    $('#contentContainer').prepend(settingsHTML);
 
-        // per‑player rows
-        Object.keys(fullTotals).forEach(p => {
-            html += `<div id="player${p}" class="sophRowA" style="width:800px"><table width="100%"><tr><td class="item-padded"><b>${p}</b></td><td class="item-padded">Full nukes: ${commas(fullTotals[p].full)}</td></tr></table></div>`;
+    // ── classify villages ──
+    players.forEach(pl => {
+        const pName = pl.name, pData = playerData[pName], t = totals[pName];
+        Object.keys(pData).forEach(vID => {
+            if (vID === 'total') return;
+            const v = pData[vID];
+            const axe=v.axe||0, lc=v.light||0, r=v.ram||0;
+
+            const plusOK  = (axe>=plusAxe  && lc>=plusLC  && r>=plusRam);
+            const fullOK  = (!plusOK) && (axe>=fullAtkAxe && lc>=fullAtkLC && r>=fullAtkRam);
+            if (plusOK) t.plusAtk++; else if (fullOK) t.fullAtk++;
+
+            // defensive pop
+            const defPop = v.spear + v.sword + v.archer + 6*(v.heavy||0) + 2*(v.spy||0);
+            if      (defPop>=fullPop)    t.fullDV++;
+            else if (defPop>=almostPop)  t.almostDV++;
+            else if (defPop>=halfPop)    t.semiDV++;
+            else if (defPop>=quarterPop) t.quarterDV++;
+
+            if ((v.snob||0)>=4)        t.train++;
+            if ((v.catapult||0)>fangSize) t.fang++;
+            if ((v.spy||0)>scoutSize)  t.scout++;
         });
+    });
 
-        $("#contentContainer").prepend(html);
-        hookCollapsibles();
-    }
+    // ── output per player ──
+    let html = '';
+    players.forEach(pl => {
+        const pName = pl.name, t = totals[pName];
+        html += `<div id="player${pName}" class="sophHeader" style="width:800px">
+  <p style="padding:10px">${pName}</p>
+  <div class="sophRowA"><table width="100%"><tr>
+    <td><table>
+      <tr><td class="item-padded">Full Atk:</td><td class="item-padded">${t.fullAtk}</td></tr>
+      <tr><td class="item-padded">Full Atk + rams:</td><td class="item-padded">${t.plusAtk}</td></tr>
+    </table></td>
+    <td><table>
+      <tr><td class="item-padded">Full DV:</td><td class="item-padded">${t.fullDV}</td></tr>
+      <tr><td class="item-padded">¾ DV:</td><td class="item-padded">${t.almostDV}</td></tr>
+      <tr><td class="item-padded">½ DV:</td><td class="item-padded">${t.semiDV}</td></tr>
+      <tr><td class="item-padded">¼ DV:</td><td class="item-padded">${t.quarterDV}</td></tr>
+    </table></td>
+    <td><table>
+      <tr><td class="item-padded">Trains:</td><td class="item-padded">${t.train}</td></tr>
+      <tr><td class="item-padded">Fangs:</td><td class="item-padded">${t.fang}</td></tr>
+      <tr><td class="item-padded">Scout vil:</td><td class="item-padded">${t.scout}</td></tr>
+    </table></td></tr></table></div>
+  <button class="collapsible">More details</button>
+  <div class="content"><table><tr>`;
+        Object.entries(playerData[pName].total).forEach(([u,c],i) => {
+            if (['spy','ram','snob'].includes(u) && i) html += '</tr><tr>';
+            html += `<td><table><tr><td class="item-padded">
+               <img src="/graphic/unit/unit_${u}.png" title="${u}"></td>
+               <td class="item-padded">${c.toLocaleString('de')}</td></tr></table></td>`;
+        });
+        html += `</tr></table></div></div>`;
+    });
+    $('#contentContainer').append(html);
+    enableCollapsibles();
+}
 
-    /* ------------------------------------------------------------------
-       7.  EXPORT & RUN
-    -------------------------------------------------------------------*/
-    window.calculateEverything = calculateEverything;
-    calculateEverything();
-})();
+// ────────────────────────── misc helpers ────────────────────────────
+function enableCollapsibles () {
+    document.querySelectorAll('.collapsible').forEach(btn =>
+        btn.addEventListener('click', function () {
+            this.classList.toggle('active');
+            const c = this.nextElementSibling;
+            c.style.maxHeight = c.style.maxHeight ? null : c.scrollHeight + 'px';
+        })
+    );
+}
+function saveSettings () {
+    const m = Object.fromEntries($('#settings').serializeArray().map(o => [o.name,+o.value]));
+    ({
+        fullPop, almostPop, halfPop, quarterPop,
+        fullAtkAxe, fullAtkLC, fullAtkRam,
+        plusAxe, plusLC, plusRam,
+        fangSize, scoutSize
+    } = m);
+    persistSettings();
+    $('.flex-container').remove(); $('[id^=player]').remove();
+    buildUI();
+}
+
+// ──────────────────────────── run! ──────────────────────────────────
+collect();
+
