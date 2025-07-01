@@ -51,6 +51,30 @@ $('input:radio[name=player]').each(function () {
 
 cssClassesSophie = `
 <style>
+
+
+.sophRowA,
+.sophHeader{
+    width:100% !important;       
+}
+
+.content{
+    width:100% !important;
+    overflow-x:auto;             
+}
+
+/
+.village-list-table{
+    width:100% !important;
+    table-layout:fixed;
+}
+
+.village-list-table th,
+.village-list-table td{
+    padding:6px 8px;
+    white-space:nowrap;         
+}
+
 .sophRowA {
 padding: 10px;
 background-color: #32353b;
