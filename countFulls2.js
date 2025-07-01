@@ -1,189 +1,443 @@
-(function () {
-    "use strict";
+javascript:
 
-    /* ------------------------------------------------------------------
-       0.  ROUTE TO ALLY‑MEMBERS PAGE IF NEEDED
-    -------------------------------------------------------------------*/
-    if (
-        window.location.href.indexOf("&screen=ally&mode=members") < 0 ||
-        window.location.href.indexOf("&screen=ally&mode=members_troops") > -1
-    ) {
-        window.location.assign(game_data.link_base_pure + "ally&mode=members");
+if (window.location.href.indexOf('&screen=ally&mode=members') < 0 || window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
+    //relocate
+    window.location.assign(game_data.link_base_pure + "ally&mode=members");
+}
+
+var baseURL = `game.php?screen=ally&mode=members_troops&player_id=`;
+var playerURLs = [];
+var villageData = {};
+var playerData = {};
+var player = [];
+var typeTotals = {};
+//remove previous ran version of script if accidental doublelaunch
+$(".flex-container").remove();
+$("div[id*='player']").remove();
+// get/store settings
+if (localStorage.getItem("settingsTribeMembersFullAtk") != null) {
+    tempArray = JSON.parse(localStorage.getItem("settingsTribeMembersFullAtk"));
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    
+}
+else {
+    tempArray = [
+        { name: "minAxeAntiBunk", value: "4500" },
+        { name: "minLightAntiBunk", value: "2000" },
+        { name: "minRamAntiBunk", value: "1000" },
+        { name: "minAxeFullAtk", value: "4500" },
+        { name: "minLightFullAtk", value: "2000" },
+        { name: "minRamFullAtk", value: "300"}
+    ]
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
+}
+//collect all player names/ids
+$('input:radio[name=player]').each(function () {
+    playerURLs.push(baseURL + $(this).attr("value"));
+    player.push({ "id": $(this).attr("value"), "name": $(this).parent().text().trim() });
+});
+
+cssClassesSophie = `
+<style>
+.sophRowA {
+padding: 10px;
+background-color: #32353b;
+color: white;
+}
+
+.sophRowB {
+padding: 10px;
+background-color: #36393f;
+color: white;
+}
+.sophHeader {
+padding: 10px;
+background-color: #202225;
+font-weight: bold;
+color: white;
+}
+.sophTitle {
+background-color:  #17181a;
+}
+
+.collapsible {
+background-color: #32353b;
+color: white;
+cursor: pointer;
+padding: 10px;
+width: 100%;
+border: none;
+text-align: left;
+outline: none;
+font-size: 15px;
+}
+
+.active, .collapsible:hover {
+background-color:  #36393f;
+}
+
+.collapsible:after {
+content: '+';
+color: white;
+font-weight: bold;
+float: right;
+margin-left: 5px;
+}
+
+.active:after {
+content: "-";
+}
+
+.content {
+padding: 0 5px;
+max-height: 0;
+overflow: hidden;
+transition: max-height 0.2s ease-out;
+background-color:  #5b5f66;
+color: white;
+}
+
+.item-padded {
+padding: 5px;
+}
+
+.flex-container {
+display: flex; 
+justify-content: space-between;
+align-items:center
+}
+
+.submenu{
+    display:flex;
+    flex-direction:column;
+    position: absolute;
+    left:566px;
+    top:53px;
+    min-width:234px;
+}
+</style>`
+
+$("#contentContainer").eq(0).prepend(cssClassesSophie);
+$("#mobileHeader").eq(0).prepend(cssClassesSophie);
+
+$.getAll = function (
+    urls, // array of URLs
+    onLoad, // called when any URL is loaded, params (index, data)
+    onDone, // called when all URLs successfully loaded, no params
+    onError // called when a URL load fails or if onLoad throws an exception, params (error)
+) {
+    var numDone = 0;
+    var lastRequestTime = 0;
+    var minWaitTime = 200; // ms between requests
+    loadNext();
+    function loadNext() {
+        if (numDone == urls.length) {
+            onDone();
+            return;
+        }
+
+        let now = Date.now();
+        let timeElapsed = now - lastRequestTime;
+        if (timeElapsed < minWaitTime) {
+            let timeRemaining = minWaitTime - timeElapsed;
+            setTimeout(loadNext, timeRemaining);
+            return;
+        }
+        $("#progress").css("width", `${(numDone + 1) / urls.length * 100}%`);
+        lastRequestTime = now;
+        $.get(urls[numDone])
+            .done((data) => {
+                try {
+                    onLoad(numDone, data);
+                    ++numDone;
+                    loadNext();
+                } catch (e) {
+                    onError(e);
+                }
+            })
+            .fail((xhr) => {
+                onError(xhr);
+            })
     }
+};
 
-    /* ------------------------------------------------------------------
-       1.  GLOBALS & STORAGE
-    -------------------------------------------------------------------*/
-    const SETTINGS_KEY = "settingsTribeFulls";
+function calculateEverything() {
+    //progress bar
+    $("#contentContainer").eq(0).prepend(`
+    <div id="progressbar" style="width: 100%;
+    background-color: #36393f;"><div id="progress" style="width: 0%;
+    height: 35px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 32px;
+    color: black;"></div>
+    </div>`);
+    $("#mobileHeader").eq(0).prepend(`
+    <div id="progressbar" style="width: 100%;
+    background-color: #36393f;"><div id="progress" style="width: 0%;
+    height: 35px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 32px;
+    color: black;"></div>
+    </div>`);
 
-    // default minima
-    let axeMin = 6000;
-    let lcMin  = 2500;
-    let ramMin = 300;
+    // collect all data from every player
+    $.getAll(playerURLs,
+        (i, data) => {
+            console.log("Grabbing player nr " + i);
+            console.log("Grabbing page nr 0");
+            
+            villageData = {};
+            villageData["total"] = {}
+            //grab village rows
+            if ($(data).find(".paged-nav-item").length == 0) {
+                rows = $(data).find(".vis.w100 tr").not(':first');
+            }
+            else {
+                rows = $(data).find(".vis.w100 tr").not(':first').not(":first").not(":last");
+            }
 
-    // try restore thresholds
-    try {
-        const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-        if (s) { axeMin = +s[0].value; lcMin = +s[1].value; ramMin = +s[2].value; }
-    } catch (e) { console.warn("settings parse", e); }
+            //grab extra pages if there are any
+            var allPages = []
+            for (var pages = 0; pages < $(data).find(".paged-nav-item").length / 2; pages++) {
+                allPages.push($(data).find(".paged-nav-item").eq(pages).attr("href"));
+            }
+            console.log(allPages);
+            $.getAll(allPages,
+                (p, getMore) => {
+                    console.log("Grabbing page nr " + (p+1));
+                    
+                    if ($(getMore).find(".paged-nav-item").length == 0) {
+                        rows = $.merge(rows,$(getMore).find(".vis.w100 tr").not(':first'));
+                    }
+                    else {
+                        rows = $.merge(rows,$(getMore).find(".vis.w100 tr").not(':first').not(":first").not(":last"));
+                    }
 
-    if (!localStorage.getItem(SETTINGS_KEY)) {
-        localStorage.setItem(
-            SETTINGS_KEY,
-            JSON.stringify([
-                { name: "axeMin", value: axeMin },
-                { name: "lcMin",  value: lcMin  },
-                { name: "ramMin", value: ramMin }
-            ])
-        );
+                },
+                () => {
+                    console.log("Rows for player "+player[i].name+ " total: "+rows.length);
+                    //create empty total object
+                    $.each(game_data.units, function (index) {
+                        unitName = game_data.units[index];
+                        villageData["total"][unitName] = 0;
+                    })
+                    //get all unit data
+                    $.each(rows, function (rowNr) {
+                        thisID = rows.eq(rowNr).find("a")[0].outerHTML.match(/id=(\d*)/)[1];
+                        villageData[thisID] = [];
+                        $.each(game_data.units, function (index) {
+                            unitName = game_data.units[index];
+                            if (rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim() != '?') {
+                                villageData[thisID][unitName] = rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim();
+                                villageData["total"][unitName] += parseInt(rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim());
+                            }
+                            else {
+                                villageData[thisID][unitName] = 0;
+                                villageData["total"][unitName] += 0;
+                            }
+                        })
+                    });
+
+                    playerData[player[i].name] = villageData;
+                    // set up total nuke/DV counts at 0 to start
+                    typeTotals[player[i].name] = { "AntiBunk": 0, "FullAtk": 0};
+                },
+                (error) => {
+                    console.error(error);
+                });
+
+
+
+        },
+        () => {
+            $("#progressbar").remove();
+            displayEverything();
+        },
+        (error) => {
+            console.error(error);
+        });
+}
+
+calculateEverything();
+function makeThingsCollapsible() {
+    var coll = $(".collapsible");
+    for (var i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function () {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
     }
+}
+function numberWithCommas(x) {
+    // add . to make numbers more readable
+    x = x.toString();
+    var pattern = /(-?\d+)(\d{3})/;
+    while (pattern.test(x))
+        x = x.replace(pattern, "$1.$2");
+    return x;
+}
 
-    const baseURL     = `game.php?screen=ally&mode=members_troops&player_id=`;
-    const playerURLs  = [];
-    const players     = [];
-    const fullTotals  = {};
-    let tribeFullSum  = 0;
+function saveSettings() {
 
+    tempArray = $("#settings").serializeArray();
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
     $(".flex-container").remove();
     $("div[id*='player']").remove();
+    displayEverything();
+}
 
-    $("input:radio[name=player]").each(function () {
-        const id = this.value;
-        playerURLs.push(baseURL + id);
-        players.push({ id, name: $(this).parent().text().trim() });
+function displayEverything() {
+    html = `
+    <div class="sophTitle sophHeader flex-container" style="width: 800px;position: relative">
+        <div class="sophTitle sophHeader" style="width: 550px;min-width: 520px;"><font size="5">Full Atk / Anti Bunk tribe counter </font></div>
+        <button class="sophRowA collapsible" style="width: 250px;min-width: 230px;">Open settings menu</button>
+        <div class="content submenu" style="width: 200px;height:500px;z-index:99999">
+            <form id="settings">
+                <table style="border-spacing:2px;">
+
+        <!-- ─────────── Anti-Bunk section ─────────── -->
+        <tr><th colspan="2" class="item-padded" style="text-align:left;background:#32353b">Anti-Bunk thresholds</th></tr>
+        <tr><td class="item-padded">Axe ≥</td><td class="item-padded"><input name="minAxeAntiBunk"  value="${minAxeAntiBunk}"  style="width:80px"> u</td></tr>
+        <tr><td class="item-padded">LC ≥</td> <td class="item-padded"><input name="minLightAntiBunk" value="${minLightAntiBunk}" style="width:80px"> u</td></tr>
+        <tr><td class="item-padded">Ram ≥</td><td class="item-padded"><input name="minRamAntiBunk"   value="${minRamAntiBunk}"  style="width:80px"> u</td></tr>
+
+        <!-- ─────────── Full-Atk section ─────────── -->
+        <tr><th colspan="2" class="item-padded" style="text-align:left;background:#32353b">Full-Atk thresholds</th></tr>
+        <tr><td class="item-padded">Axe ≥</td><td class="item-padded"><input name="minAxeFullAtk"   value="${minAxeFullAtk}"   style="width:80px"> u</td></tr>
+        <tr><td class="item-padded">LC ≥</td> <td class="item-padded"><input name="minLightFullAtk" value="${minLightFullAtk}" style="width:80px"> u</td></tr>
+        <tr><td class="item-padded">Ram ≥</td><td class="item-padded"><input name="minRamFullAtk"   value="${minRamFullAtk}"   style="width:80px"> u</td></tr>
+
+        <!-- save button -->
+        <tr><td colspan="2" style="padding:6px;text-align:center">
+          <input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="saveSettings();">
+        </td></tr>
+                </table>
+            </form>
+        </div> 
+    </div>`;
+    //display the data in a neat UI
+    $.each(player, function (play) {
+        typeTotals[player[play].name] = { "AntiBunk": 0, "FullAtk": 0};
     });
 
-    /* ------------------------------------------------------------------
-       2.  CSS (dark theme)
-    -------------------------------------------------------------------*/
-    const css = `
-<style>
-.sophRowA{padding:10px;background:#32353b;color:#fff}
-.sophHeader{padding:10px;background:#202225;font-weight:bold;color:#fff}
-.sophTitle{background:#17181a}
-.collapsible{background:#32353b;color:#fff;cursor:pointer;padding:10px;width:100%;border:none;text-align:left;font-size:15px}
-.active,.collapsible:hover{background:#36393f}
-.collapsible:after{content:'+';float:right;margin-left:5px;font-weight:bold}
-.active:after{content:'-'}
-.content{padding:0 5px;max-height:0;overflow:hidden;transition:max-height .2s ease-out;background:#5b5f66;color:#fff}
-.item-padded{padding:5px}
-.flex-container{display:flex;justify-content:space-between;align-items:center}
-.submenu{display:flex;flex-direction:column;position:absolute;left:566px;top:53px;min-width:234px}
-</style>`;
-    $("#contentContainer,#mobileHeader").first().prepend(css);
+    $.each(playerData, function (playerName) {
+        //calculate nuke and DV counts
+        for (var villageCounter = 0; villageCounter < Object.keys(playerData[playerName]).length; villageCounter++) {
+            if (Object.keys(playerData[playerName])[villageCounter] != "total") {
+                //check what kind of village we're dealing with
 
-    /* ------------------------------------------------------------------
-       3.  $.getAll helper (polite)
-    -------------------------------------------------------------------*/
-    $.getAll = function (urls, each, done, fail) {
-        let i = 0, last = 0, gap = 200;
-        (function next () {
-            if (i === urls.length) return done();
-            const now = Date.now();
-            if (now - last < gap) return setTimeout(next, gap - (now - last));
-            $("#progress").css("width", `${((i + 1) / urls.length) * 100}%`);
-            last = now;
-            $.get(urls[i])
-                .done(d => { try { each(i, d); ++i; next(); } catch (e) { fail(e); }})
-                .fail(fail);
-        })();
-    };
+                thisVillageAxeUnits = 0;
+                thisVillageLightUnits = 0;
+                thisVillageRamUnits = 0;
+                for (var lol = 0; lol < game_data.units.length; lol++) {
+                    switch (Object.keys(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]])[lol]) {
+                        case "spear":
+                            break;
+                        case "sword":
+                            break;
+                        case "archer":
+                            break;
+                        case "axe":
+                            thisVillageAxeUnits += parseInt(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]][game_data.units[lol]]);
+                            break;
+                        case "spy":
+                            break;
+                        case "light":
+                            thisVillageLightUnits += parseInt(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]][game_data.units[lol]]);
+                            break;
+                        case "marcher":
+                            break;
+                        case "ram":
+                            thisVillageRamUnits += parseInt(playerData[playerName][Object.keys(playerData[playerName])[villageCounter]][game_data.units[lol]]);
+                            break;
+                        case "heavy":
+                       
+                            break;
+                        case "catapult":
+                            break;
+                        case "snob":
+                            break;
+                        default:
+                            //militia/paladin left
+                            break;
+                    }
+                }
 
-    const fmt = x => x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                //calculate here how many villages belong to which category
 
-    /* ------------------------------------------------------------------
-       4.  saveSettings()
-    -------------------------------------------------------------------*/
-    function saveSettings () {
-        const a = $("#settings").serializeArray();
-        axeMin = +a[0].value; lcMin = +a[1].value; ramMin = +a[2].value;
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(a));
-        $(".flex-container,div[id*='player']").remove();
-        tribeFullSum = 0;
-        displayEverything();
-    }
-    window.saveFullSettings = saveSettings;
+                //AntiBunk
+                if (thisVillageAxeUnits >= minAxeAntiBunk && thisVillageLightUnits >= minLightAntiBunk && thisVillageRamUnits >= minRamAntiBunk) typeTotals[playerName]["AntiBunk"] += 1;
 
-    const hookCollaps = () => $(".collapsible").off("click").on("click", function(){
-        this.classList.toggle("active");
-        const n = this.nextElementSibling;
-        n.style.maxHeight = n.style.maxHeight ? null : n.scrollHeight + "px";
-    });
+                //FullAtk
+                if (thisVillageAxeUnits >= minAxeFullAtk && thisVillageLightUnits >= minLightFullAtk && thisVillageRamUnits >= minRamFullAtk && thisVillageRamUnits < minRamAntiBunk) typeTotals[playerName]["FullAtk"] += 1;
 
-    /* ------------------------------------------------------------------
-       5.  core calculation
-    -------------------------------------------------------------------*/
-    function calculateEverything () {
-        $("#contentContainer,#mobileHeader").first().prepend(`<div id="progressbar" style="width:100%;background:#36393f"><div id="progress" style="width:0%;height:35px;background:#4CAF50;line-height:32px;text-align:center;color:black"></div></div>`);
+           
 
-        $.getAll(
-            playerURLs,
-            (idx, doc) => {
-                const name = players[idx].name;
-                fullTotals[name] = { full: 0 };
+            }
+        }
 
-                const grabRows = d => $(d).find(".vis.w100 tr").not(":first,:last");
-                let rows = grabRows(doc);
-
-                const extras = $(doc).find(".paged-nav-item").map((_,e)=>$(e).attr("href")).get();
-                $.getAll(
-                    extras.slice(0, extras.length/2),
-                    (_, pg)=>{ rows = $.merge(rows, grabRows(pg)); },
-                    ()=>{
-                        rows.each(function(){
-                            const cells = $(this).children();
-                            if (cells.length < 10) return; // sanity
-                            const toInt = i => parseInt(cells.eq(i).text().trim().replace(/\D/g, "")) || 0;
-                            const axe = toInt(5);
-                            const lc  = toInt(7);
-                            const ram = toInt(9);
-                            if (axe >= axeMin && lc >= lcMin && ram >= ramMin) {
-                                fullTotals[name].full += 1;
-                                tribeFullSum += 1;
-                            }
-                        });
-                    },
-                    console.error
-                );
-            },
-            ()=> { $("#progressbar").remove(); displayEverything(); },
-            console.error
-        );
-    }
-
-    /* ------------------------------------------------------------------
-       6.  UI rendering
-    -------------------------------------------------------------------*/
-    function displayEverything () {
-        let html = `
-<div class="sophTitle sophHeader flex-container" style="width:800px;position:relative">
-  <div class="sophHeader" style="width:550px;min-width:520px"><font size="5">Tribe Full‑Nuke Counter</font></div>
-  <button class="sophRowA collapsible" style="width:250px;min-width:230px">Open settings</button>
-  <div class="content submenu" style="width:200px;height:260px;z-index:99999">
-    <form id="settings">
-      <table style="border-spacing:2px">
-        <tr><td class="item-padded"><label>Axe ≥</label></td><td class="item-padded"><input type="text" name="axeMin" value="${axeMin}" style="width:92px"></td></tr>
-        <tr><td class="item-padded"><label>Light ≥</label></td><td class="item-padded"><input type="text" name="lcMin" value="${lcMin}" style="width:92px"></td></tr>
-        <tr><td class="item-padded"><label>Ram ≥</label></td><td class="item-padded"><input type="text" name="ramMin" value="${ramMin}" style="width:92px"></td></tr>
-        <tr><td colspan="2" class="item-padded"><input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="window.saveFullSettings()"></td></tr>
-      </table>
-    </form>
-  </div>
-</div>
-<div class="sophHeader" style="width:800px;margin-top:5px">Tribe total full nukes: <b>${fmt(tribeFullSum)}</b></div>`;
-
-        Object.keys(fullTotals).forEach(p=>{
-            html += `<div id="player${p}" class="sophRowA" style="width:800px"><table width="100%"><tr><td class="item-padded"><b>${p}</b></td><td class="item-padded">Full nukes: ${fmt(fullTotals[p].full)}</td></tr></table></div>`;
+        html += `
+        <div id='player${playerName}' class="sophHeader" style="float: left;width: 800px;">
+            <p style="padding:10px">${playerName}</p>
+            <div class="sophRowA" width="760px">
+            <table width="100%"><tr><td><table>`
+        offTable = "";
+        defTable = "";
+        other = "";
+        $.each(typeTotals[playerName], function (type) {
+            switch (type) {
+                case "AntiBunk":
+                    offTable += `<tr><td class="item-padded">Full Anti Bunk: </td><td class="item-padded">${typeTotals[playerName][type]}</td></tr>`
+                    break;
+                case "FullAtk":
+                    offTable += `<tr><td class="item-padded">Full Atk Normal: </td><td class="item-padded">${typeTotals[playerName][type]}</td></tr>`
+                    break;
+                default:
+                    console.log("Rip in pepperonis")
+                    break;
+            }
         });
 
-        $("#contentContainer").prepend(html);
-        hookCollaps();
-    }
+        html += offTable + "</table></td><td><table>" + defTable + "</table></td><td><table>" + other;
+        html += `</table></td></tr></table>
+                </div>
+                <button class="collapsible">More details</button>
+                <div class="content"><table><tr>`;
+        $.each(playerData[playerName]["total"], function (troopName) {
+            if (troopName == "spy" || troopName == "ram" || troopName == "snob") {
+                html += '</tr><tr>'
+            }
+            html += `<td><table><tr><td class="item-padded"><img src="/graphic/unit/unit_${troopName}.png" title="${troopName}" alt="" class=""></td>
+                <td class="item-padded">${numberWithCommas(playerData[playerName]["total"][troopName])}</td></tr></table></td>`
+        })
 
-    /* ------------------------------------------------------------------
-       7.  export & init
-    -------------------------------------------------------------------*/
-    window.calculateEverything = calculateEverything;
-    window.grabEverything      = calculateEverything;
-    calculateEverything();
-})();
+        html += `</tr></table></div></div>`;
+    });
+
+    $("#contentContainer").prepend(html);
+    makeThingsCollapsible();
+}
