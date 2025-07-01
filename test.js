@@ -9,15 +9,15 @@ var playerURLs = [];
 var villageData = {};
 var playerData = {};
 var player = [];
-var typeTotals = {};
-var bucketVillages = {};
 
 $(".flex-container").remove();
 $("div[id*='player']").remove();
 $("#ally-troop-counter-main").remove();
 
+var minAxeAntiBunk, minLightAntiBunk, minRamAntiBunk, minAxeFullAtk, minLightFullAtk, minRamFullAtk;
+
 if (localStorage.getItem("settingsTribeMembersFullAtk") != null) {
-    tempArray = JSON.parse(localStorage.getItem("settingsTribeMembersFullAtk"));
+    var tempArray = JSON.parse(localStorage.getItem("settingsTribeMembersFullAtk"));
     minAxeAntiBunk = tempArray[0].value;
     minLightAntiBunk = tempArray[1].value;
     minRamAntiBunk = tempArray[2].value;
@@ -25,7 +25,7 @@ if (localStorage.getItem("settingsTribeMembersFullAtk") != null) {
     minLightFullAtk = tempArray[4].value;
     minRamFullAtk = tempArray[5].value;
 } else {
-    tempArray = [
+    var tempArray = [
         { name: "minAxeAntiBunk", value: "4500" },
         { name: "minLightAntiBunk", value: "2000" },
         { name: "minRamAntiBunk", value: "1000" },
@@ -95,14 +95,14 @@ const improvedCSS = `
         color: var(--atc-accent-color);
         margin-left: 8px;
     }
-    .atc-player-card, .atc-tool-card {
+    .atc-player-card {
         background-color: var(--atc-bg-card);
         margin: 10px 10px 0 10px;
         border: 1px solid var(--atc-border-color);
         border-radius: 4px;
         overflow: hidden;
     }
-    .atc-card-header, .atc-player-header {
+    .atc-player-header {
         padding: 12px 15px;
         font-size: 16px;
         font-weight: bold;
@@ -167,28 +167,14 @@ const improvedCSS = `
     .atc-panel-content {
         padding: 20px;
     }
-    .atc-form-grid {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 10px 20px;
-        align-items: center;
-    }
-    .atc-form-grid label { font-weight: bold; }
-    .atc-form-grid input[type="text"], .atc-form-grid select {
-        width: 100%;
-        padding: 5px;
-        background-color: var(--atc-bg-main);
-        border: 1px solid var(--atc-border-color);
-        color: var(--atc-text-light);
-        border-radius: 3px;
-    }
     .atc-settings-wrapper {
         margin: 10px 10px 0 10px;
     }
     .atc-settings-form table { width: 100%; }
-    .atc-settings-form th { text-align: left; padding: 10px 0 5px 0; border-bottom: 1px solid var(--atc-border-color); }
+    .atc-settings-form th { text-align: left; padding: 15px 0 5px 0; border-bottom: 1px solid var(--atc-border-color); font-size: 1.1em; }
+    .atc-settings-form th:first-child { padding-top: 0; }
     .atc-settings-form td { padding: 8px 4px; }
-    .atc-settings-form input[type="text"] { width: 100px; padding: 4px; }
+    .atc-settings-form input[type="text"], .atc-settings-form select { width: 120px; padding: 4px; }
     .atc-totals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; padding: 10px; }
     .atc-troop-item { display: flex; align-items: center; background-color: rgba(0,0,0,0.2); padding: 5px; border-radius: 3px; }
     .atc-troop-item img { margin-right: 8px; }
@@ -333,7 +319,18 @@ function parseTimeToSeconds(timeStr) {
     return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
-function rerunDisplay() {
+function saveAndApply() {
+    // Save the threshold settings
+    var tempArray = $("#settings-form").serializeArray();
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
+    
+    // Rerun the display with new filter values
     $("#ally-troop-counter-main").remove();
     displayEverything();
 }
@@ -349,8 +346,7 @@ function addAllEventListeners() {
         }
     });
 
-    $(document).on('click', '#atc-apply-filter-btn', rerunDisplay);
-    $(document).on('click', '#atc-save-settings-btn', saveSettings);
+    $(document).on('click', '#atc-apply-btn', saveAndApply);
 }
 
 function numberWithCommas(x) {
@@ -359,17 +355,6 @@ function numberWithCommas(x) {
     while (pattern.test(x))
         x = x.replace(pattern, "$1.$2");
     return x;
-}
-function saveSettings() {
-    tempArray = $("#settings").serializeArray();
-    minAxeAntiBunk = tempArray[0].value;
-    minLightAntiBunk = tempArray[1].value;
-    minRamAntiBunk = tempArray[2].value;
-    minAxeFullAtk = tempArray[3].value;
-    minLightFullAtk = tempArray[4].value;
-    minRamFullAtk = tempArray[5].value;
-    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
-    rerunDisplay();
 }
 
 function displayEverything() {
@@ -457,44 +442,43 @@ function displayEverything() {
         </div>
 
         <div class="atc-settings-wrapper">
-            <button class="collapsible">Travel Time Filter</button>
+            <button class="collapsible">Filters & Settings</button>
             <div class="content">
                 <div class="atc-panel-content">
-                    <div class="atc-form-grid">
-                        <label for="atc-filter-target-coords">Target Coords:</label>
-                        <input type="text" id="atc-filter-target-coords" placeholder="e.g., 555|444" value="${targetCoords}">
-                        <label for="atc-filter-max-time">Max Time:</label>
-                        <input type="text" id="atc-filter-max-time" placeholder="hh:mm:ss" value="${maxTimeStr}">
-                        <label for="atc-filter-unit-selector">Unit:</label>
-                        <select id="atc-filter-unit-selector">
-                            <option value="ram" ${selectedUnit === 'ram' ? 'selected' : ''}>Ram</option>
-                            <option value="axe" ${selectedUnit === 'axe' ? 'selected' : ''}>Axe</option>
-                            <option value="light" ${selectedUnit === 'light' ? 'selected' : ''}>LC</option>
-                        </select>
-                    </div>
-                    <div style="text-align: center; margin-top: 15px;">
-                        <button id="atc-apply-filter-btn" class="btn">Apply Filter</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="atc-settings-wrapper">
-            <button class="collapsible">Settings & Thresholds</button>
-            <div class="content">
-                <div class="atc-panel-content">
-                    <form id="settings" class="atc-settings-form">
+                    <form id="settings-form" class="atc-settings-form">
                         <table>
+                            <tr><th colspan="2">Travel Time Filter</th></tr>
+                            <tr>
+                                <td>Target Coords:</td>
+                                <td><input type="text" id="atc-filter-target-coords" placeholder="e.g., 555|444" value="${targetCoords}"></td>
+                            </tr>
+                            <tr>
+                                <td>Max Time:</td>
+                                <td><input type="text" id="atc-filter-max-time" placeholder="hh:mm:ss" value="${maxTimeStr}"></td>
+                            </tr>
+                            <tr>
+                                <td>Unit:</td>
+                                <td>
+                                    <select id="atc-filter-unit-selector">
+                                        <option value="ram" ${selectedUnit === 'ram' ? 'selected' : ''}>Ram</option>
+                                        <option value="axe" ${selectedUnit === 'axe' ? 'selected' : ''}>Axe</option>
+                                        <option value="light" ${selectedUnit === 'light' ? 'selected' : ''}>LC</option>
+                                    </select>
+                                </td>
+                            </tr>
+
                             <tr><th colspan="2">Anti-Bunk Thresholds</th></tr>
                             <tr><td>Axe ≥</td><td><input name="minAxeAntiBunk" type="text" value="${minAxeAntiBunk}"></td></tr>
                             <tr><td>CL ≥</td><td><input name="minLightAntiBunk" type="text" value="${minLightAntiBunk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamAntiBunk" type="text" value="${minRamAntiBunk}"></td></tr>
+                            
                             <tr><th colspan="2">Full-Atk Thresholds</th></tr>
                             <tr><td>Axe ≥</td><td><input name="minAxeFullAtk" type="text" value="${minAxeFullAtk}"></td></tr>
                             <tr><td>CL ≥</td><td><input name="minLightFullAtk" type="text" value="${minLightFullAtk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamFullAtk" type="text" value="${minRamFullAtk}"></td></tr>
+                            
                             <tr><td colspan="2" style="text-align:center; padding-top: 15px;">
-                                <input type="button" class="btn evt-confirm-btn" value="Save" id="atc-save-settings-btn">
+                                <input type="button" class="btn evt-confirm-btn" value="Save & Apply Filters" id="atc-apply-btn">
                             </td></tr>
                         </table>
                     </form>
