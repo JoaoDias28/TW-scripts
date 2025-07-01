@@ -320,8 +320,8 @@ function saveSettings() {
 }
 
 function displayEverything() {
-    html = `
-    <div class="sophTitle sophHeader flex-container" style="width: 800px;position: relative">
+    let html = 
+    `<div class="sophTitle sophHeader flex-container" style="width: 800px;position: relative">
         <div class="sophTitle sophHeader" style="width: 550px;min-width: 520px;"><font size="5">Full Atk / Anti Bunk tribe counter </font></div>
         <button class="sophRowA collapsible" style="width: 250px;min-width: 230px;">Open settings menu</button>
         <div class="content submenu" style="width: 200px;height:500px;z-index:99999">
@@ -359,9 +359,6 @@ function displayEverything() {
         for (const villageId of villageIds) {
             const village = playerData[playerName][villageId];
 
-            // =========================================================================
-            // BUG FIX #2: Use direct property access instead of fragile key-order logic.
-            // =========================================================================
             const thisVillageAxeUnits = village.axe || 0;
             const thisVillageLightUnits = village.light || 0;
             const thisVillageRamUnits = village.ram || 0;
@@ -392,15 +389,17 @@ function displayEverything() {
         <div id='player${playerName}' class="sophHeader" style="float: left;width: 800px;">
             <p style="padding:10px">${playerName}</p>
             <div class="sophRowA" width="760px">
-                <table width="100%"><tr><td>
-                    <table>`;
+                <table width="100%"><tr><td>`;
 
         let offTable = "";
         const playerBuckets = bucketVillages[playerName];
+        const placeholderRow = '<tr><td colspan="4" style="text-align:center;">—</td></tr>';
 
         // --- AntiBunk Table ---
         const abRows = playerBuckets.AntiBunk.map(v =>
-            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
+            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`
+        ).join('');
+        
         offTable += `
             <tr>
                 <td class="item-padded">Full Anti-Bunk:</td>
@@ -410,9 +409,13 @@ function displayEverything() {
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
-                        <table>
-                            <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
-                            ${abRows || '<tr><td colspan="4">—</td></tr>'}
+                        <table class="village-list-table">
+                            <thead>
+                                <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
+                            </thead>
+                            <tbody>
+                                ${abRows || placeholderRow}
+                            </tbody>
                         </table>
                     </div>
                 </td>
@@ -420,7 +423,9 @@ function displayEverything() {
 
         // --- FullAtk Table ---
         const faRows = playerBuckets.FullAtk.map(v =>
-            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
+            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`
+        ).join('');
+
         offTable += `
             <tr>
                 <td class="item-padded">Full Atk Normal:</td>
@@ -430,15 +435,19 @@ function displayEverything() {
                 <td colspan="2" class="item-padded">
                     <button class="collapsible">Villages</button>
                     <div class="content">
-                        <table>
-                            <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
-                            ${faRows || '<tr><td colspan="4">—</td></tr>'}
+                        <table class="village-list-table">
+                            <thead>
+                                <tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr>
+                            </thead>
+                            <tbody>
+                                ${faRows || placeholderRow}
+                            </tbody>
                         </table>
                     </div>
                 </td>
             </tr>`;
 
-        html += offTable + `</table></td></tr></table>
+        html += offTable + `</td></tr></table>
             </div>
             <button class="collapsible">More details</button>
             <div class="content"><table><tr>`;
