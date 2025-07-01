@@ -346,11 +346,7 @@ function displayEverything() {
             </form>
         </div> 
     </div>`;
-    //display the data in a neat UI
-    $.each(player, function (play) {
-        typeTotals[player[play].name] = { "AntiBunk": 0, "FullAtk": 0};
-       
-    });
+ 
 
     $.each(playerData, function (playerName) {
         //calculate nuke and DV counts
