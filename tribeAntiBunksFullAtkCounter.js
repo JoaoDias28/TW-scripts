@@ -349,7 +349,7 @@ function displayEverything() {
     //display the data in a neat UI
     $.each(player, function (play) {
         typeTotals[player[play].name] = { "AntiBunk": 0, "FullAtk": 0};
-        bucketVillages[player[play].name] = { AntiBunk:[], FullAtk:[] };
+       
     });
 
     $.each(playerData, function (playerName) {
