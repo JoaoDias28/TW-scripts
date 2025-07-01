@@ -31,7 +31,7 @@ else {
         { name: "minLightAntiBunk", value: "2000" },
         { name: "minRamAntiBunk", value: "1000" },
         { name: "minAxeFullAtk", value: "4500" },
-        { name: "minLighFullAtk", value: "2000" },
+        { name: "minLightFullAtk", value: "2000" },
         { name: "minRamFullAtk", value: "300"}
     ]
     minAxeAntiBunk = tempArray[0].value;
