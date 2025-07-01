@@ -1,3 +1,5 @@
+javascript:
+
 if (window.location.href.indexOf('&screen=ally&mode=members') < 0 || window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
     window.location.assign(game_data.link_base_pure + "ally&mode=members");
 }
