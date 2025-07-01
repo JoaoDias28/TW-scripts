@@ -259,7 +259,7 @@ function calculateEverything() {
                     playerData[player[i].name] = villageData;
                     // set up total nuke/DV counts at 0 to start
                     typeTotals[player[i].name] = { "AntiBunk": 0, "FullAtk": 0};
-                    bucketVillages[player[play].name] = { AntiBunk:[], FullAtk:[] };
+                    bucketVillages[player[i].name] = { AntiBunk:[], FullAtk:[] };
 
                 },
                 (error) => {
@@ -349,6 +349,7 @@ function displayEverything() {
     //display the data in a neat UI
     $.each(player, function (play) {
         typeTotals[player[play].name] = { "AntiBunk": 0, "FullAtk": 0};
+        bucketVillages[player[play].name] = { AntiBunk:[], FullAtk:[] };
     });
 
     $.each(playerData, function (playerName) {
