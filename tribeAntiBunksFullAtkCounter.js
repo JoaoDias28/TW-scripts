@@ -256,6 +256,264 @@ function calculateEverything() {
             console.log("Grabbing page nr 0");
 
             villageData = {};
+            villageData["total"] = {}javascript:
+
+if (window.location.href.indexOf('&screen=ally&mode=members') < 0 || window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
+    //relocate
+    window.location.assign(game_data.link_base_pure + "ally&mode=members");
+}
+
+var baseURL = `game.php?screen=ally&mode=members_troops&player_id=`;
+var playerURLs = [];
+var villageData = {};
+var playerData = {};
+var player = [];
+var typeTotals = {};
+var bucketVillages = {};
+//remove previous ran version of script if accidental doublelaunch
+$(".flex-container").remove();
+$("div[id*='player']").remove();
+// get/store settings
+if (localStorage.getItem("settingsTribeMembersFullAtk") != null) {
+    tempArray = JSON.parse(localStorage.getItem("settingsTribeMembersFullAtk"));
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+
+}
+else {
+    tempArray = [
+        { name: "minAxeAntiBunk", value: "4500" },
+        { name: "minLightAntiBunk", value: "2000" },
+        { name: "minRamAntiBunk", value: "1000" },
+        { name: "minAxeFullAtk", value: "4500" },
+        { name: "minLightFullAtk", value: "2000" },
+        { name: "minRamFullAtk", value: "300" }
+    ]
+    minAxeAntiBunk = tempArray[0].value;
+    minLightAntiBunk = tempArray[1].value;
+    minRamAntiBunk = tempArray[2].value;
+    minAxeFullAtk = tempArray[3].value;
+    minLightFullAtk = tempArray[4].value;
+    minRamFullAtk = tempArray[5].value;
+    localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(tempArray));
+}
+//collect all player names/ids
+$('input:radio[name=player]').each(function () {
+    playerURLs.push(baseURL + $(this).attr("value"));
+    player.push({ "id": $(this).attr("value"), "name": $(this).parent().text().trim() });
+});
+
+cssClassesSophie = `
+<style>
+
+
+.sophRowA,
+.sophHeader{
+    width:100% !important;       
+}
+
+.content{
+    width:100% !important;
+    overflow-x:auto;             
+}
+
+/
+.village-list-table{
+    width:100% !important;
+    table-layout:fixed;
+}
+
+.village-list-table th,
+.village-list-table td{
+    padding:6px 8px;
+    white-space:nowrap;         
+}
+
+.sophRowA {
+padding: 10px;
+background-color: #32353b;
+color: white;
+}
+
+.sophRowB {
+padding: 10px;
+background-color: #36393f;
+color: white;
+}
+.sophHeader {
+padding: 10px;
+background-color: #202225;
+font-weight: bold;
+color: white;
+}
+.sophTitle {
+background-color:  #17181a;
+}
+
+.collapsible {
+background-color: #32353b;
+color: white;
+cursor: pointer;
+padding: 10px;
+width: 100%;
+border: none;
+text-align: left;
+outline: none;
+font-size: 15px;
+}
+
+.active, .collapsible:hover {
+background-color:  #36393f;
+}
+
+.collapsible:after {
+content: '+';
+color: white;
+font-weight: bold;
+float: right;
+margin-left: 5px;
+}
+
+.active:after {
+content: "-";
+}
+
+.content {
+padding: 0 5px;
+max-height: 0;
+overflow: hidden;
+transition: max-height 0.2s ease-out;
+background-color:  #5b5f66;
+color: white;
+}
+
+.item-padded {
+padding: 5px;
+}
+
+.flex-container {
+display: flex;
+justify-content: space-between;
+align-items:center
+}
+
+.submenu{
+    display:flex;
+    flex-direction:column;
+    position: absolute;
+    left:566px;
+    top:53px;
+    min-width:234px;
+}
+
+.village-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.village-list-table thead th {
+    background-color: #202225;
+    color: #e0e0e0;
+    padding: 10px;
+    border-bottom: 2px solid #4CAF50; /* Green accent line */
+}
+
+.village-list-table tbody tr:nth-child(even) {
+    background-color: #36393f;
+}
+
+.village-list-table tbody tr:nth-child(odd) {
+    background-color: #32353b;
+}
+
+.village-list-table td {
+    padding: 8px 10px;
+    border-top: 1px solid #4f545c;
+}
+
+
+.village-list-table th:nth-child(1), .village-list-table td:nth-child(1) { text-align: left; } /* Village */
+.village-list-table th:nth-child(n+2), .village-list-table td:nth-child(n+2) { text-align: right; } /* Axe, LC, Ram (and any future numeric columns) */
+</style>`
+
+$("#contentContainer").eq(0).prepend(cssClassesSophie);
+$("#mobileHeader").eq(0).prepend(cssClassesSophie);
+
+$.getAll = function (
+    urls, // array of URLs
+    onLoad, // called when any URL is loaded, params (index, data)
+    onDone, // called when all URLs successfully loaded, no params
+    onError // called when a URL load fails or if onLoad throws an exception, params (error)
+) {
+    var numDone = 0;
+    var lastRequestTime = 0;
+    var minWaitTime = 200; // ms between requests
+    loadNext();
+    function loadNext() {
+        if (numDone == urls.length) {
+            onDone();
+            return;
+        }
+
+        let now = Date.now();
+        let timeElapsed = now - lastRequestTime;
+        if (timeElapsed < minWaitTime) {
+            let timeRemaining = minWaitTime - timeElapsed;
+            setTimeout(loadNext, timeRemaining);
+            return;
+        }
+        $("#progress").css("width", `${(numDone + 1) / urls.length * 100}%`);
+        lastRequestTime = now;
+        $.get(urls[numDone])
+            .done((data) => {
+                try {
+                    onLoad(numDone, data);
+                    ++numDone;
+                    loadNext();
+                } catch (e) {
+                    onError(e);
+                }
+            })
+            .fail((xhr) => {
+                onError(xhr);
+            })
+    }
+};
+
+function calculateEverything() {
+    //progress bar
+    $("#contentContainer").eq(0).prepend(`
+    <div id="progressbar" style="width: 100%;
+    background-color: #36393f;"><div id="progress" style="width: 0%;
+    height: 35px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 32px;
+    color: black;"></div>
+    </div>`);
+    $("#mobileHeader").eq(0).prepend(`
+    <div id="progressbar" style="width: 100%;
+    background-color: #36393f;"><div id="progress" style="width: 0%;
+    height: 35px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 32px;
+    color: black;"></div>
+    </div>`);
+
+    // collect all data from every player
+    $.getAll(playerURLs,
+        (i, data) => {
+            console.log("Grabbing player nr " + i);
+            console.log("Grabbing page nr 0");
+
+            villageData = {};
             villageData["total"] = {}
             //grab village rows
             if ($(data).find(".paged-nav-item").length == 0) {
@@ -448,7 +706,7 @@ function displayEverything() {
             <p style="padding:10px">${playerName}</p>
             <div class="sophRowA" width="760px">
                 <table width="100%"><tr><td>
-                    <table>`;
+                    `;
 
         let offTable = "";
         const playerBuckets = bucketVillages[playerName];
@@ -493,7 +751,7 @@ function displayEverything() {
                 </td>
             </tr>`;
 
-        html += offTable + `</table></td></tr></table>
+        html += offTable + `</td></tr></table>
             </div>
             <button class="collapsible">More details</button>
             <div class="content"><table><tr>`;
