@@ -178,5 +178,5 @@ function injectCSS() {
 // This makes the functions available on the global window object
 // so the Tampermonkey loader can find and call them.
 // =========================================================================
-window.calculateEverything = calculateEverything;
-window.rerunDisplay = rerunDisplay;
+calculateEverything();
+rerunDisplay();
