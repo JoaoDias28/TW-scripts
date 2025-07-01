@@ -409,11 +409,11 @@ function displayEverything() {
                         <table>
                             <tr><th colspan="2">Anti-Bunk Thresholds</th></tr>
                             <tr><td>Axe ≥</td><td><input name="minAxeAntiBunk" type="text" value="${minAxeAntiBunk}"></td></tr>
-                            <tr><td>LC ≥</td><td><input name="minLightAntiBunk" type="text" value="${minLightAntiBunk}"></td></tr>
+                            <tr><td>CL ≥</td><td><input name="minLightAntiBunk" type="text" value="${minLightAntiBunk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamAntiBunk" type="text" value="${minRamAntiBunk}"></td></tr>
                             <tr><th colspan="2">Full-Atk Thresholds</th></tr>
                             <tr><td>Axe ≥</td><td><input name="minAxeFullAtk" type="text" value="${minAxeFullAtk}"></td></tr>
-                            <tr><td>LC ≥</td><td><input name="minLightFullAtk" type="text" value="${minLightFullAtk}"></td></tr>
+                            <tr><td>CL ≥</td><td><input name="minLightFullAtk" type="text" value="${minLightFullAtk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamFullAtk" type="text" value="${minRamFullAtk}"></td></tr>
                             <tr><td colspan="2" style="text-align:center; padding-top: 15px;">
                                 <input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save & Recalculate" onclick="saveSettings();">
@@ -429,14 +429,14 @@ function displayEverything() {
         const abRows = bucketVillages[playerName].AntiBunk.map(v =>
             `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
         const abTable = abRows ? `<table class="village-list-table">
-                                      <thead><tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr></thead>
+                                      <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th></tr></thead>
                                       <tbody>${abRows}</tbody>
                                   </table>` : '<div style="padding:10px; text-align:center;">- No villages meet criteria -</div>';
 
         const faRows = bucketVillages[playerName].FullAtk.map(v =>
             `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td></tr>`).join('');
         const faTable = faRows ? `<table class="village-list-table">
-                                      <thead><tr><th>Village</th><th>Axe</th><th>LC</th><th>Ram</th></tr></thead>
+                                      <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th></tr></thead>
                                       <tbody>${faRows}</tbody>
                                   </table>` : '<div style="padding:10px; text-align:center;">- No villages meet criteria -</div>';
         
