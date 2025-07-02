@@ -120,6 +120,7 @@ const improvedCSS = `
         --atc-text-header: #ffffff;
         --atc-border-color: #4f545c;
         --atc-accent-color: #4CAF50;
+        --atc-href-color: #5794e6;
     }
     #ally-troop-counter-main {
         width: 850px;
@@ -276,6 +277,9 @@ const improvedCSS = `
         padding: 6px 8px;
         border-top: 1px solid var(--atc-border-color);
         text-align: right;
+    }
+    .village-list-table a {
+    color: var(--atc-href-color);
     }
     .village-list-table td:first-child { text-align: left; }
     .village-list-table tr:nth-child(even) { background-color: rgba(0,0,0,0.15); }
