@@ -366,7 +366,9 @@ function calculateEverything() {
                         villageData[thisID] = {};
                         const linkTxt = rows.eq(rowNr).find('a').text();
                         const mCoords = linkTxt.match(/(\d+\|\d+)/);
+                        const mContinent = linkTxt.match(/(K\d{2})/);
                         villageData[thisID]['coords'] = mCoords ? mCoords[1] : '?';
+                          villageData[thisID]['continent'] = mContinent ? mContinent[1] : '?'; 
                         $.each(game_data.units, function (index) {
                             const unitName = game_data.units[index];
                             const unitValue = rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim();
@@ -462,10 +464,10 @@ function displayEverything() {
             const thisVillageRamUnits = village.ram || 0;
             if (thisVillageAxeUnits >= minAxeAntiBunk && thisVillageLightUnits >= minLightAntiBunk && thisVillageRamUnits >= minRamAntiBunk) {
                 typeTotals[playerName]["AntiBunk"] += 1;
-                bucketVillages[playerName].AntiBunk.push({ coord: village.coords, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds });
+                bucketVillages[playerName].AntiBunk.push({ coord: village.coords, continent: village.continent, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds });
             } else if (thisVillageAxeUnits >= minAxeFullAtk && thisVillageLightUnits >= minLightFullAtk && thisVillageRamUnits >= minRamFullAtk && thisVillageRamUnits < minRamAntiBunk) {
                 typeTotals[playerName]["FullAtk"] += 1;
-                bucketVillages[playerName].FullAtk.push({ coord: village.coords, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds });
+                bucketVillages[playerName].FullAtk.push({ coord: village.coords, continent: village.continent, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds });
             }
         }
         grandTotalAntiBunk += typeTotals[playerName]["AntiBunk"];
@@ -517,16 +519,21 @@ function displayEverything() {
         const timeHeader = isTimeFilterActive ? `<th>Time (${travelUnit})</th>` : '';
         const timeCell = (v) => isTimeFilterActive ? `<td>${formatTimeFromSeconds(v.travelTime)}</td>` : '';
 
-        const abRows = bucketVillages[playerName].AntiBunk.map(v =>
-            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td>${timeCell(v)}</tr>`).join('');
-        const abTable = abRows ? `<table class="village-list-table">
+       const abRows = bucketVillages[playerName].AntiBunk.map(v => {
+        const [x, y] = v.coord.split('|');
+        const mapLink = `${game_data.link_base_pure}map&x=${x}&y=${y}`;
+        return `<tr><td><a href="${mapLink}" target="_blank">${v.coord}</a> ${v.continent}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td>${timeCell(v)}</tr>`;
+    }).join(''); const abTable = abRows ? `<table class="village-list-table">
                                       <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th>${timeHeader}</tr></thead>
                                       <tbody>${abRows}</tbody>
                                   </table>` : '<div style="padding:10px; text-align:center;">- No villages meet criteria -</div>';
 
-        const faRows = bucketVillages[playerName].FullAtk.map(v =>
-            `<tr><td>${v.coord}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td>${timeCell(v)}</tr>`).join('');
-        const faTable = faRows ? `<table class="village-list-table">
+         const faRows = bucketVillages[playerName].FullAtk.map(v => {
+        const [x, y] = v.coord.split('|');
+        const mapLink = `${game_data.link_base_pure}map&x=${x}&y=${y}`;
+        return `<tr><td><a href="${mapLink}" target="_blank">${v.coord}</a> ${v.continent}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td>${timeCell(v)}</tr>`;
+    }).join('');
+ const faTable = faRows ? `<table class="village-list-table">
                                       <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th>${timeHeader}</tr></thead>
                                       <tbody>${faRows}</tbody>
                                   </table>` : '<div style="padding:10px; text-align:center;">- No villages meet criteria -</div>';
