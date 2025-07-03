@@ -120,7 +120,7 @@ const improvedCSS = `
         --atc-text-header: #ffffff;
         --atc-border-color: #4f545c;
         --atc-accent-color: #4CAF50;
-        --atc-href-color: #ffffff;
+        --atc-href-color: #5794e6;
     }
     #ally-troop-counter-main {
         width: 850px;
