@@ -1,26 +1,3 @@
-Of course! This is an excellent idea for improving the script. Separating the "total owned troops" from the "troops currently at home" provides much more actionable intelligence.
-
-Here is the improved script. I've broken down the changes and explained them below.
-
-Key Improvements:
-
-Dual Data Fetching: The script now fetches data from both members_troops and members_defense sequentially.
-
-Separate Data Storage: Data is stored in separate objects (playerData_troops, playerData_defense, etc.) to keep everything clean and distinct.
-
-Tabbed UI: The user interface has been redesigned with tabs, allowing you to easily switch between the "Total Troops" view and the "Available Troops" view.
-
-Refactored Logic: The calculation and display logic has been modularized. A single function now generates the content for a tab, and it's called once for each dataset. This avoids code duplication.
-
-Efficient Recalculation: When you change settings and click "Save & Recalculate", the script no longer re-fetches all the data. It just re-runs the calculations on the already stored data, making it instantaneous.
-
-Improved Progress Bar: The progress bar now shows the progress for both fetching phases.
-
-The Improved Script
-
-Copy and paste this entire code block into your quick bar.
-
-Generated javascript
 javascript:
 (function() {
     // Redirect if not on the main ally members page
