@@ -31,7 +31,7 @@ javascript:
     var targetVillage, maxTime, travelUnit;
     const unitSpeeds = {
         spear: 18, sword: 22, axe: 18, archer: 18, spy: 9,
-        light: 10, // Corrected from cavlight
+        light: 10,
         marcher: 10, heavy: 11, ram: 30, catapult: 30,
         knight: 10, noble: 35
     };
@@ -99,21 +99,18 @@ javascript:
         playerList.push({ "id": playerId, "name": playerName });
     });
 
-    // --- MODIFIED: Added CSS for Tabs ---
     const improvedCSS = `
     <style>
         :root { --atc-bg-main: #2e3136; --atc-bg-header: #202225; --atc-bg-card: #36393f; --atc-bg-card-header: #2a2d31; --atc-bg-interactive: #40444b; --atc-bg-interactive-hover: #4d525a; --atc-text-light: #dcddde; --atc-text-header: #ffffff; --atc-border-color: #4f545c; --atc-accent-color: #4CAF50; --atc-href-color: #5794e6; }
         #ally-troop-counter-main { width: 850px; margin: 15px auto; color: var(--atc-text-light); background-color: var(--atc-bg-main); border: 1px solid var(--atc-bg-header); border-radius: 5px; padding-bottom: 5px; }
         .atc-main-header { background-color: var(--atc-bg-header); color: var(--atc-text-header); padding: 12px 20px; border-radius: 5px 5px 0 0; text-align: center; }
         .atc-main-title { font-size: 20px; font-weight: bold; }
-        /* Tab Styles */
         .atc-tabs { display: flex; background-color: var(--atc-bg-card-header); }
         .atc-tab-button { background-color: transparent; border: none; padding: 12px 20px; cursor: pointer; color: var(--atc-text-light); font-size: 16px; transition: background-color 0.2s, box-shadow 0.2s; flex-grow: 1; border-bottom: 3px solid transparent;}
         .atc-tab-button:hover { background-color: var(--atc-bg-interactive); }
         .atc-tab-button.active { background-color: var(--atc-bg-main); color: var(--atc-text-header); font-weight: bold; border-bottom: 3px solid var(--atc-accent-color); }
         .atc-tab-content { display: none; padding: 5px 5px 0 5px; }
         .atc-tab-content.active { display: block; }
-        /* End Tab Styles */
         .atc-grand-totals { display: flex; justify-content: center; gap: 30px; padding: 12px; background-color: var(--atc-bg-card-header); font-size: 16px; font-weight: bold; border-bottom: 1px solid var(--atc-border-color); }
         .atc-grand-totals .total-count { color: var(--atc-accent-color); margin-left: 8px; }
         .atc-player-card { background-color: var(--atc-bg-card); margin: 10px; border: 1px solid var(--atc-border-color); border-radius: 4px; overflow: hidden; }
@@ -148,11 +145,10 @@ javascript:
     </style>`;
     $("head").append(improvedCSS);
 
-    // This is the original $.getAll, preserved as requested
     $.getAll = function (urls, onLoad, onDone, onError) {
         var numDone = 0;
         var lastRequestTime = 0;
-        var minWaitTime = 200; // 5 requests per second
+        var minWaitTime = 200;
         loadNext();
         function loadNext() {
             if (numDone === urls.length) {
@@ -165,8 +161,6 @@ javascript:
                 setTimeout(loadNext, minWaitTime - timeElapsed);
                 return;
             }
-            
-            // Progress bar update is now handled outside this function
             lastRequestTime = now;
             $.get(urls[numDone])
                 .done((data) => {
@@ -184,7 +178,6 @@ javascript:
         }
     };
 
-    // --- MODIFIED: The original calculateEverything(), now parameterized ---
     function fetchDataForMode(mode, onFinishCallback) {
         const playerURLs = (mode === 'troops') ? playerURLs_troops : playerURLs_defense;
         const targetPlayerData = (mode === 'troops') ? playerData_troops : playerData_defense;
@@ -197,52 +190,88 @@ javascript:
         $("#atc-progress-text").text(`Fetching data for: ${mode === 'troops' ? 'Total Troops' : 'Available Troops'}...`);
         
         $.getAll(playerURLs,
-            (i, data) => { // This is the onLoad for each player
+            (i, data) => {
                 let progress = progressOffset + i + 1;
                 $("#atc-progress").css("width", `${(progress / (totalPlayers * 2)) * 100}%`).text(`${progress} / ${totalPlayers * 2}`);
-
-                let villageData = {};
-                villageData["total"] = {};
-                
-                // This is the exact inner $.getAll logic from the original script
+                let villageData = { "total": {} };
                 let rows = $(data).find(".vis.w100 tr").not(':first');
                 if ($(data).find(".paged-nav-item").length > 0) {
                      rows = $(data).find(".vis.w100 tr").not(':first').not(":first").not(":last");
                 }
-                var allPages = [...$(data).find(".paged-nav-item")].map(a => a.href).filter((v, i, a) => a.indexOf(v) === i);
+                var allPages = [...$(data).find(".p-nav-item")].map(a => a.href).filter((v, i, a) => a.indexOf(v) === i);
 
                 $.getAll(allPages,
-                    (p, getMore) => { // onLoad for each page
+                    (p, getMore) => {
                         if ($(getMore).find(".paged-nav-item").length == 0) {
                             rows = $.merge(rows, $(getMore).find(".vis.w100 tr").not(':first'));
                         } else {
                             rows = $.merge(rows, $(getMore).find(".vis.w100 tr").not(':first').not(":first").not(":last"));
                         }
                     },
-                    () => { // onDone for all pages of a single player
+                    () => {
                         $.each(game_data.units, function (index) {
-                            const unitName = game_data.units[index];
-                            villageData["total"][unitName] = 0;
+                            villageData["total"][game_data.units[index]] = 0;
                         });
-                        $.each(rows, function (rowNr) {
-                            const thisID = rows.eq(rowNr).find("a")[0].outerHTML.match(/id=(\d*)/)[1];
-                            villageData[thisID] = {};
-                            const linkTxt = rows.eq(rowNr).find('a').text();
-                            const mCoords = linkTxt.match(/(\d+\|\d+)/);
-                            const mContinent = linkTxt.match(/(K\d{2})/);
-                            villageData[thisID]['coords'] = mCoords ? mCoords[1] : '?';
-                            villageData[thisID]['continent'] = mContinent ? mContinent[1] : '?';
-                            $.each(game_data.units, function (index) {
-                                const unitName = game_data.units[index];
-                                const unitValue = rows.eq(rowNr).children().not(':first').eq(index + 1).text().trim();
-                                if (unitValue !== '?') {
-                                    villageData[thisID][unitName] = parseInt(unitValue);
-                                    villageData["total"][unitName] += parseInt(unitValue);
-                                } else {
-                                    villageData[thisID][unitName] = 0;
-                                }
+
+                        // --- FIX START: Logic is now different for each mode ---
+                        if (mode === 'defense') {
+                            // In defense mode, each village has two rows. We only want the first one ("na aldeia").
+                            // These rows are identifiable because they have a cell with rowspan="2".
+                            const mainRows = rows.filter(function() {
+                                return $(this).find('td[rowspan="2"]').length > 0;
                             });
-                        });
+
+                            $.each(mainRows, function (rowNr) {
+                                const row = $(this);
+                                const link = row.find("a").first();
+                                if (!link.length) return true;
+                                const href = link.attr('href');
+                                const idMatch = href.match(/village=(\d+)/) || href.match(/id=(\d+)/);
+                                if (!idMatch || !idMatch[1]) return true;
+                                const thisID = idMatch[1];
+                                
+                                villageData[thisID] = {};
+                                const linkTxt = link.text();
+                                villageData[thisID]['coords'] = (linkTxt.match(/(\d+\|\d+)/) || [])[1] || '?';
+                                villageData[thisID]['continent'] = (linkTxt.match(/(K\d{2})/) || [])[1] || '?';
+
+                                $.each(game_data.units, function (index) {
+                                    const unitName = game_data.units[index];
+                                    // The unit columns are shifted by 1 compared to the troops page because of the "na aldeia" cell
+                                    const unitValue = row.children().eq(index + 3).text().trim();
+                                    const count = unitValue !== '?' && unitValue !== '' ? parseInt(unitValue, 10) : 0;
+                                    villageData[thisID][unitName] = count;
+                                    villageData["total"][unitName] += count;
+                                });
+                            });
+                        } else {
+                            // This is the original logic for the simpler 'members_troops' table
+                            $.each(rows, function (rowNr) {
+                                const row = $(this);
+                                const link = row.find("a").first();
+                                if (!link.length) return true;
+                                const href = link.attr('href');
+                                const idMatch = href.match(/village=(\d+)/) || href.match(/id=(\d+)/);
+                                if (!idMatch || !idMatch[1]) return true;
+                                const thisID = idMatch[1];
+                                
+                                villageData[thisID] = {};
+                                const linkTxt = link.text();
+                                villageData[thisID]['coords'] = (linkTxt.match(/(\d+\|\d+)/) || [])[1] || '?';
+                                villageData[thisID]['continent'] = (linkTxt.match(/(K\d{2})/) || [])[1] || '?';
+
+                                $.each(game_data.units, function (index) {
+                                    const unitName = game_data.units[index];
+                                    // Standard column indexing for the troops page
+                                    const unitValue = row.children().not(':first').eq(index + 1).text().trim();
+                                    const count = unitValue !== '?' && unitValue !== '' ? parseInt(unitValue, 10) : 0;
+                                    villageData[thisID][unitName] = count;
+                                    villageData["total"][unitName] += count;
+                                });
+                            });
+                        }
+                        // --- FIX END ---
+
                         targetPlayerData[playerList[i].name] = villageData;
                         targetTypeTotals[playerList[i].name] = { "AntiBunk": 0, "FullAtk": 0 };
                         targetBucketVillages[playerList[i].name] = { AntiBunk: [], FullAtk: [] };
@@ -250,9 +279,7 @@ javascript:
                     (error) => { console.error("Error fetching pages for player", error); }
                 );
             },
-            () => { // This is the onDone for all players
-                onFinishCallback();
-            },
+            () => { onFinishCallback(); },
             (error) => {
                 console.error("Error fetching player data for mode: " + mode, error);
                 UI.InfoMessage("An error occurred. Check the console (F12).", 5000, 'error');
@@ -276,7 +303,6 @@ javascript:
         return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     }
     
-    // MODIFIED: Save settings and efficiently re-render tab content
     function saveSettings() {
         let settingsData = {
             minAxeAntiBunk: $('[name="minAxeAntiBunk"]').val(),
@@ -292,14 +318,12 @@ javascript:
         localStorage.setItem("settingsTribeMembersFullAtk", JSON.stringify(settingsData));
         loadSettings();
         
-        // Regenerate content for both tabs with new settings
         $("#tab-content-troops").html(generateTabContentHtml('troops'));
         $("#tab-content-defense").html(generateTabContentHtml('defense'));
-        makeThingsCollapsible(); // Re-attach listeners
+        makeThingsCollapsible();
     }
-    window.saveSettings = saveSettings; // Make it accessible from the onclick attribute
+    window.saveSettings = saveSettings;
 
-    // NEW: Generates the HTML for one tab's content
     function generateTabContentHtml(mode) {
         const playerData = (mode === 'troops') ? playerData_troops : playerData_defense;
         const typeTotals = (mode === 'troops') ? typeTotals_troops : typeTotals_defense;
@@ -372,7 +396,6 @@ javascript:
         return html;
     }
 
-    // MODIFIED: Main display function to build the UI shell
     function displayEverything() {
         let html = `
         <div id="ally-troop-counter-main">
@@ -416,7 +439,6 @@ javascript:
         </div>`;
         $("#contentContainer").prepend(html);
 
-        // Tab switching logic
         $('.atc-tab-button').on('click', function() {
             const tab = $(this).data('tab');
             $('.atc-tab-button').removeClass('active');
@@ -428,17 +450,14 @@ javascript:
 
     // --- SCRIPT START ---
     loadSettings();
-    displayEverything(); // Display the UI shell immediately
+    displayEverything();
 
-    // Start the two-phase fetching process
     fetchDataForMode('troops', () => {
         console.log("Finished fetching 'members_troops' data.");
         fetchDataForMode('defense', () => {
             console.log("Finished fetching 'members_defense' data.");
             $("#atc-progressbar-container").hide();
             $("#atc-main-content").show();
-
-            // Now that all data is fetched, generate the content for both tabs
             $("#tab-content-troops").html(generateTabContentHtml('troops'));
             $("#tab-content-defense").html(generateTabContentHtml('defense'));
             makeThingsCollapsible();
