@@ -1,4 +1,6 @@
 javascript:
+(function() {
+    'use strict';
 
     // --- Page validation ---
     if (window.location.href.indexOf('&screen=ally&mode=members') < 0) {
