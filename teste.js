@@ -443,6 +443,7 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
             $rows.each(function () {
                 const $tds = $(this).children();
                 if ($tds.eq(2).text().trim() !== 'na aldeia') return;
+                console.log($tds.eq(2).text().trim());
                 const anchor = $(this).find('a')[0];
                 if (!anchor) return;
                 const vID = anchor.href.match(/id=(\d+)/)[1];
@@ -464,7 +465,7 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                 const light = +$tds.eq(7).text().trim() || 0;
                 const ram = +$tds.eq(9).text().trim() || 0;
 
-                const offPop = axe + light * 4 + ram * 5;
+                const offAvailablePop = axe + light * 4 + ram * 5;
                 const defPop = spear + sword + heavy * 6;
                 defenseData[pName][vID].spear = spear;
                 defenseData[pName][vID].sword = sword;
