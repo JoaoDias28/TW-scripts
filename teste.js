@@ -459,12 +459,18 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                 const spear = +$tds.eq(3).text().trim() || 0;
                 const sword = +$tds.eq(4).text().trim() || 0;
                 const heavy = +$tds.eq(8).text().trim() || 0;
+
+                const axe = +$tds.eq(5).text().trim() || 0;
+                const light = +$tds.eq(7).text().trim() || 0;
+                const ram = +$tds.eq(9).text().trim() || 0;
+
+                const offPop = axe + light * 4 + ram * 5;
                 const defPop = spear + sword + heavy * 6;
                 defenseData[pName][vID].spear = spear;
                 defenseData[pName][vID].sword = sword;
                 defenseData[pName][vID].heavy = heavy;
 
-                if (defPop <= +maxAvailableDefPop) {
+                if (defPop <= +maxAvailableDefPop && offPop <= 5000) {
                     defTotals[pName]         += 1;
                     bucketDefense[pName].push(defenseData[pName][vID]);
                 }
