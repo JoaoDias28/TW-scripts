@@ -388,7 +388,9 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                         villageData["total"][unitName] = 0;
                     })
                     $.each(rows, function (rowNr) {
-                        const thisID = rows.eq(rowNr).find("a")[0].outerHTML.match(/id=(\d*)/)[1];
+                        const anchor = rows.eq(rowNr).find("a")[0];
+                        if (!anchor) return;
+                        const thisID = anchor.outerHTML.match(/id=(\d+)/)[1];
                         villageData[thisID] = {};
                         const linkTxt = rows.eq(rowNr).find('a').text();
                         const mCoords = linkTxt.match(/(\d+\|\d+)/);
@@ -444,7 +446,10 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
 
             $rows.each(function () {
                 const $tds = $(this).children();
-                const vID  = $(this).find("a")[0].href.match(/id=(\d+)/)[1];
+                if ($tds.eq(2).text().trim() !== 'na aldeia') return;
+                const anchor = $(this).find('a')[0];
+                if (!anchor) return;
+                const vID = anchor.href.match(/id=(\d+)/)[1];
                 const link = $tds.first().text();            // coords + KXY
                 const mCoords    = link.match(/(\d+\|\d+)/);
                 const mContinent = link.match(/K\d{2}/);
