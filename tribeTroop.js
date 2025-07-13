@@ -1,4 +1,4 @@
-javascript:
+jjavascript:
 
 if (window.location.href.indexOf('&screen=ally&mode=members') < 0 || window.location.href.indexOf('&screen=ally&mode=members_troops') > -1) {
     window.location.assign(game_data.link_base_pure + "ally&mode=members");
@@ -21,7 +21,7 @@ const defTotals       = {};              // player-level village counts
 const bucketDefense   = {};              // player-level village lists
 
 // UI thresholds
-var maxSpearDef, maxSwordDef;
+var maxSpearDef, maxSwordDef, maxHeavyDef;
 // --- NEW ---: Add unit speeds and travel time settings variables
 var minAxeAntiBunk, minLightAntiBunk, minRamAntiBunk, minAxeFullAtk, minLightFullAtk, minRamFullAtk;
 var targetVillage, maxTime, travelUnit;
@@ -120,7 +120,7 @@ loadSettings(); // Initial call
 
 $('input:radio[name=player]').each(function () {
     playerURLs.push(baseURL + $(this).attr("value"));
-    defPlayerURLs.push(baseDefURL + $(this).val());
+    defPlayerURLs.push(baseDefURL + $(this).attr("value"));
     player.push({ "id": $(this).attr("value"), "name": $(this).parent().text().trim() });
 });
 
@@ -343,12 +343,16 @@ $.getAll = function (urls, onLoad, onDone, onError) {
 };
 
 function calculateEverything() {
+     let doneTroops = false, doneDef = false;
+
+     
   const progressBarHtml = `
         <div id="ally-troop-counter-main">
             <div id="atc-progressbar">
                 <div id="atc-progress">0 / ${playerURLs.length * 2}</div>
             </div>
         </div>`;
+          const renderIfReady = () => { if (doneTroops && doneDef) { $("#atc-progressbar").remove(); displayEverything(); } };
     $("#contentContainer").eq(0).prepend(progressBarHtml);
 
      /* ========== pass 1: OFFENSIVE ========== */
@@ -410,10 +414,7 @@ function calculateEverything() {
                     console.error(error);
                 });
         },
-        () => {
-            $("#atc-progressbar").remove();
-            displayEverything();
-        },
+      () => { doneTroops = true; renderIfReady(); },
         (error) => {
             console.error(error);
         });
@@ -460,7 +461,7 @@ function calculateEverything() {
                 }
             });
         },
-        () => { doneDef = true; drawIfReady(); },
+        () => { doneDef = true; renderIfReady(); },
         (e)=>console.error(e));
 
 }
