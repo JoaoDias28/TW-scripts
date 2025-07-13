@@ -468,7 +468,7 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                 defenseData[pName][vID].sword = sword;
                 defenseData[pName][vID].heavy = heavy;
 
-                if (spear <= maxSpearDef && sword <= maxSwordDef && heavy <= maxHeavyDef ) {
+                if ( (spear + sword + heavy) <= (+maxSpearDef + +maxSwordDef + +maxHeavyDef) ) {
                     defTotals[pName]         += 1;
                     bucketDefense[pName].push(defenseData[pName][vID]);
                 }
