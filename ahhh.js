@@ -622,7 +622,7 @@ function displayEverything() {
                 <div class="atc-settings-panel">
                     <form id="settings" class="atc-settings-form">
                         <table>
-                        <tr><th data-tip="Tick to show villages that have fulls + nobles ready" colspan="2">Require Noble</th></tr>
+                        <tr><th style="margin-top:10px" data-tip="Tick to show villages that have fulls + nobles ready" colspan="2">Require Noble</th></tr>
                         <tr>
                             <td colspan="2">
                             <label style="white-space:nowrap">
@@ -641,13 +641,13 @@ function displayEverything() {
                             <tr><td>Ram ≥</td><td><input name="minRamFullAtk" type="text" value="${minRamFullAtk}"></td></tr>
                             <tr><th colspan="2">Available-defense pop limit</th></tr>
                             <tr>
-                                <td colspan="2">
+                                <td data-tip="Only count villages whose *home* spear+sword+heavy population is at or below this value.\n So to not count bunks " colspan="2">
                                     <select onchange="document.getElementsByName('maxAvailableDefPop')[0].value=this.value;">
                                         <option value="24000">24 000</option>
                                         <option value="26400">26 400</option>
                                         <option value="30000">30 000</option>
                                     </select>
-                                    or&nbsp;custom: <input  data-tip="Only count villages whose *home* spear+sword+heavy population is at or below this value.\n So to not count bunks " name="maxAvailableDefPop" type="text" value="${maxAvailableDefPop}" style="width:80px;">
+                                    or&nbsp;custom: <input   name="maxAvailableDefPop" type="text" value="${maxAvailableDefPop}" style="width:80px;">
                                 </td>
                             </tr>
                             <tr><th colspan="2">Travel Time Filter</th></tr>
