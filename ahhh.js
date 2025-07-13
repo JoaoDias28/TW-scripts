@@ -305,7 +305,34 @@ const improvedCSS = `
     .village-list-table tr:nth-child(even) { background-color: rgba(0,0,0,0.15); }
     #atc-progressbar { width: 100%; background-color: var(--atc-bg-card); border-radius: 5px; overflow: hidden; height: 30px; margin-bottom: 10px; }
     #atc-progress { width: 0%; height: 100%; background-color: var(--atc-accent-color); transition: width 0.3s ease; text-align: center; line-height: 30px; color: black; font-weight: bold; }
-</style>`;
+[data-tip]{
+    position:relative; cursor:help;
+}
+[data-tip]::after{
+    content:attr(data-tip);
+    position:absolute; left:50%; bottom:125%;
+    transform:translateX(-50%) scale(0);
+    background:#111; color:#eee; padding:6px 8px;
+    border-radius:4px; font-size:12px; line-height:1.3;
+    white-space:pre; z-index:9999; pointer-events:none;
+    transition:transform .15s ease-out, opacity .15s;
+    opacity:0;
+}
+[data-tip]::before{                /* little arrow */
+    content:"";
+    position:absolute; left:50%; bottom:115%;
+    transform:translateX(-50%) scale(0);
+    border:6px solid transparent;
+    border-top-color:#111; z-index:9998;
+    transition:transform .15s ease-out, opacity .15s;
+    opacity:0;
+}
+[data-tip]:hover::after,
+[data-tip]:hover::before{
+    transform:translateX(-50%) scale(1);
+    opacity:1;
+}
+    </style>`;
 
 $("#contentContainer").eq(0).prepend(improvedCSS);
 $("#mobileHeader").eq(0).prepend(improvedCSS);
@@ -595,7 +622,7 @@ function displayEverything() {
                 <div class="atc-settings-panel">
                     <form id="settings" class="atc-settings-form">
                         <table>
-                        <tr><th colspan="2">Require Noble</th></tr>
+                        <tr><th data-tip="Tick to show villages that have fulls + nobles ready" colspan="2">Require Noble</th></tr>
                         <tr>
                             <td colspan="2">
                             <label style="white-space:nowrap">
@@ -620,7 +647,7 @@ function displayEverything() {
                                         <option value="26400">26 400</option>
                                         <option value="30000">30 000</option>
                                     </select>
-                                    or&nbsp;custom: <input name="maxAvailableDefPop" type="text" value="${maxAvailableDefPop}" style="width:80px;">
+                                    or&nbsp;custom: <input  data-tip="Only count villages whose *home* spear+sword+heavy population is at or below this value.\n So to not count bunks " name="maxAvailableDefPop" type="text" value="${maxAvailableDefPop}" style="width:80px;">
                                 </td>
                             </tr>
                             <tr><th colspan="2">Travel Time Filter</th></tr>
@@ -701,7 +728,7 @@ const defTable = defSummary;
                     <div class="content">${faTable}</div>
                 </div>
              <div class="atc-category def-inline">
-                <h4>Available Defense ≤ ${numberWithCommas(maxAvailableDefPop)} pop</h4>
+                <h4>Available Defense ≤ ${numberWithCommas(maxAvailableDefPop)} pop </h4>
               
                ${defTable}
             </div>
