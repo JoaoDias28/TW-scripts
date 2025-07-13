@@ -198,7 +198,7 @@ javascript:
                 if ($(data).find(".paged-nav-item").length > 0) {
                      rows = $(data).find(".vis.w100 tr").not(':first').not(":first").not(":last");
                 }
-                var allPages = [...$(data).find(".p-nav-item")].map(a => a.href).filter((v, i, a) => a.indexOf(v) === i);
+                var allPages = [...$(data).find(".paged-nav-item")].map(a => a.href).filter((v, i, a) => a.indexOf(v) === i);
 
                 $.getAll(allPages,
                     (p, getMore) => {
