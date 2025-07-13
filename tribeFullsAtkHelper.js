@@ -11,7 +11,17 @@ var playerData = {};
 var player = [];
 var typeTotals = {};
 var bucketVillages = {};
+var requireNoble;   
 
+/* ---------- DEF tab globals ---------- */
+const baseDefURL      = `game.php?screen=ally&mode=members_defense&player_id=`;
+const defPlayerURLs   = [];              // per-player fetch list
+const defenseData     = {};              // player->village->unit map
+const defTotals       = {};              // player-level village counts
+const bucketDefense   = {};              // player-level village lists
+
+// UI thresholds
+var maxAvailableDefPop;
 // --- NEW ---: Add unit speeds and travel time settings variables
 var minAxeAntiBunk, minLightAntiBunk, minRamAntiBunk, minAxeFullAtk, minLightFullAtk, minRamFullAtk;
 var targetVillage, maxTime, travelUnit;
@@ -67,9 +77,11 @@ function loadSettings() {
         minAxeFullAtk: "4500",
         minLightFullAtk: "2000",
         minRamFullAtk: "300",
+        maxAvailableDefPop:"24000",
         targetVillage: "",
         maxTime: "12:00:00",
-        travelUnit: "ram"
+        travelUnit: "ram",
+        requireNoble: "off"
     };
 
     let settings = localStorage.getItem("settingsTribeMembersFullAtk");
@@ -94,9 +106,11 @@ function loadSettings() {
     minAxeFullAtk = finalSettings.minAxeFullAtk;
     minLightFullAtk = finalSettings.minLightFullAtk;
     minRamFullAtk = finalSettings.minRamFullAtk;
+    maxAvailableDefPop = finalSettings.maxAvailableDefPop;
     targetVillage = finalSettings.targetVillage;
     maxTime = finalSettings.maxTime;
     travelUnit = finalSettings.travelUnit;
+    requireNoble = finalSettings.requireNoble === "on";
 }
 
 loadSettings(); // Initial call
@@ -104,6 +118,7 @@ loadSettings(); // Initial call
 
 $('input:radio[name=player]').each(function () {
     playerURLs.push(baseURL + $(this).attr("value"));
+    defPlayerURLs.push(baseDefURL + $(this).attr("value"));
     player.push({ "id": $(this).attr("value"), "name": $(this).parent().text().trim() });
 });
 
@@ -255,6 +270,11 @@ const improvedCSS = `
         gap: 10px;
         padding: 10px;
     }
+    .def-inline .atc-totals-grid{
+    display:flex;               /* ditch the auto-fill grid        */
+    gap:12px;                   /* space between the three pills   */
+    justify-content:flex-start; /* keep them left-aligned           */
+    }
     .atc-troop-item {
         display: flex;
         align-items: center;
@@ -285,7 +305,34 @@ const improvedCSS = `
     .village-list-table tr:nth-child(even) { background-color: rgba(0,0,0,0.15); }
     #atc-progressbar { width: 100%; background-color: var(--atc-bg-card); border-radius: 5px; overflow: hidden; height: 30px; margin-bottom: 10px; }
     #atc-progress { width: 0%; height: 100%; background-color: var(--atc-accent-color); transition: width 0.3s ease; text-align: center; line-height: 30px; color: black; font-weight: bold; }
-</style>`;
+[data-tip]{
+    position:relative; cursor:help;
+}
+[data-tip]::after{
+    content:attr(data-tip);
+    position:absolute; left:120%; bottom:75%;
+    transform:translateX(-50%) scale(0);
+    background:#111; color:#eee; padding:6px 8px;
+    border-radius:4px; font-size:12px; line-height:1.3;
+    white-space:pre; z-index:9999; pointer-events:none;
+    transition:transform .15s ease-out, opacity .15s;
+    opacity:0;
+}
+[data-tip]::before{                /* little arrow */
+    content:"";
+    position:absolute; left:50%; bottom:115%;
+    transform:translateX(-50%) scale(0);
+    border:6px solid transparent;
+    border-top-color:#111; z-index:9998;
+    transition:transform .15s ease-out, opacity .15s;
+    opacity:0;
+}
+[data-tip]:hover::after,
+[data-tip]:hover::before{
+    transform:translateX(-50%) scale(1);
+    opacity:1;
+}
+    </style>`;
 
 $("#contentContainer").eq(0).prepend(improvedCSS);
 $("#mobileHeader").eq(0).prepend(improvedCSS);
@@ -307,8 +354,7 @@ $.getAll = function (urls, onLoad, onDone, onError) {
             setTimeout(loadNext, timeRemaining);
             return;
         }
-        $("#atc-progress").css("width", `${(numDone + 1) / urls.length * 100}%`).text(`${(numDone + 1)} / ${urls.length}`);
-        lastRequestTime = now;
+         lastRequestTime = now;
         $.get(urls[numDone])
             .done((data) => {
                 try {
@@ -316,24 +362,30 @@ $.getAll = function (urls, onLoad, onDone, onError) {
                     ++numDone;
                     loadNext();
                 } catch (e) {
-                    onError(e);
+                    (onError || console.error)(e);
                 }
             })
             .fail((xhr) => {
-                onError(xhr);
+               (onError || console.error)(xhr); 
             });
     }
 };
 
 function calculateEverything() {
-    const progressBarHtml = `
-    <div id="ally-troop-counter-main">
-        <div id="atc-progressbar">
-            <div id="atc-progress">0 / ${playerURLs.length}</div>
-        </div>
-    </div>`;
+     let doneTroops = false, doneDef = false;
+let offPlayersDone = 0;   // counts players whose OFF pages are fully parsed
+let defPlayersDone = 0;   // counts players whose DEF page is parsed
+    
+  const progressBarHtml = `
+        <div id="ally-troop-counter-main">
+            <div id="atc-progressbar">
+                <div id="atc-progress">0 / ${playerURLs.length * 2}</div>
+            </div>
+        </div>`;
+          const renderIfReady = () => { if (doneTroops && doneDef) { $("#atc-progressbar").remove(); displayEverything(); } };
     $("#contentContainer").eq(0).prepend(progressBarHtml);
 
+     /* ========== pass 1: OFFENSIVE ========== */
     $.getAll(playerURLs,
         (i, data) => {
             console.log("Grabbing player nr " + i);
@@ -366,7 +418,9 @@ function calculateEverything() {
                         villageData["total"][unitName] = 0;
                     })
                     $.each(rows, function (rowNr) {
-                        const thisID = rows.eq(rowNr).find("a")[0].outerHTML.match(/id=(\d*)/)[1];
+                        const anchor = rows.eq(rowNr).find("a")[0];
+                        if (!anchor) return;
+                        const thisID = anchor.outerHTML.match(/id=(\d+)/)[1];
                         villageData[thisID] = {};
                         const linkTxt = rows.eq(rowNr).find('a').text();
                         const mCoords = linkTxt.match(/(\d+\|\d+)/);
@@ -387,18 +441,91 @@ function calculateEverything() {
                     playerData[player[i].name] = villageData;
                     typeTotals[player[i].name] = { "AntiBunk": 0, "FullAtk": 0 };
                     bucketVillages[player[i].name] = { AntiBunk: [], FullAtk: [] };
+                      offPlayersDone++;
+        $("#atc-progress").css("width",
+               `${(offPlayersDone + defPlayersDone) / (player.length * 2) * 100}%`)
+               .text(`${offPlayersDone + defPlayersDone} / ${player.length * 2}`);
+
+        if (offPlayersDone === player.length) {
+            doneTroops = true;
+          
+
+            renderIfReady();
+        }
                 },
                 (error) => {
                     console.error(error);
                 });
         },
-        () => {
-            $("#atc-progressbar").remove();
-            displayEverything();
-        },
+        () => {},      
         (error) => {
             console.error(error);
         });
+
+         /* ========== pass 2: DEFENSIVE ========== */
+    $.getAll(defPlayerURLs,
+        (i, data) => {
+        
+            const $rows = $(data).find(".vis.w100 tr").not(':first');
+            const pName = player[i].name;            // same player index
+            if (!defenseData[pName]) {
+                defenseData[pName]  = {};
+                defTotals[pName]    = 0;
+                bucketDefense[pName]= [];
+            }
+
+            $rows.each(function () {
+                const $tds = $(this).children();
+                if ($tds.eq(2).text().trim() !== 'na aldeia') return;
+                console.log($tds.eq(2).text().trim());
+                const anchor = $(this).find('a')[0];
+                if (!anchor) return;
+                const vID = anchor.href.match(/id=(\d+)/)[1];
+                const link = $tds.first().text();            // coords + KXY
+                const mCoords    = link.match(/(\d+\|\d+)/);
+                const mContinent = link.match(/K\d{2}/);
+
+                defenseData[pName][vID] = {
+                    coords    : mCoords    ? mCoords[1] : '?',
+                    continent : mContinent ? mContinent[0] : '?'
+                };
+
+                // parse spear / sword / heavy columns (index based on world’s unit order)
+                const spear = +$tds.eq(3).text().trim() || 0;
+                const sword = +$tds.eq(4).text().trim() || 0;
+                const heavy = +$tds.eq(8).text().trim() || 0;
+
+                const axe = +$tds.eq(5).text().trim() || 0;
+                const light = +$tds.eq(7).text().trim() || 0;
+                const ram = +$tds.eq(9).text().trim() || 0;
+
+                const offAvailablePop = axe + light * 4 + ram * 5;
+                const defPop = spear + sword + heavy * 6;
+                defenseData[pName][vID].spear = spear;
+                defenseData[pName][vID].sword = sword;
+                defenseData[pName][vID].heavy = heavy;
+
+                if (defPop <= +maxAvailableDefPop && offAvailablePop <= 5000) {
+                    defTotals[pName]         += 1;
+                    bucketDefense[pName].push(defenseData[pName][vID]);
+                }
+                
+            });
+            defPlayersDone++;
+$("#atc-progress").css("width",
+       `${(offPlayersDone + defPlayersDone) / (player.length * 2) * 100}%`)
+       .text(`${offPlayersDone + defPlayersDone} / ${player.length * 2}`);
+
+if (defPlayersDone === player.length) {
+    doneDef = true;
+ 
+    renderIfReady();
+}
+
+        },
+    () => {},      
+        (e)=>console.error(e));
+
 }
 
 calculateEverything();
@@ -438,6 +565,7 @@ function displayEverything() {
     let grandTotalAntiBunk = 0;
     let grandTotalFullAtk = 0;
 
+
     const isTimeFilterActive = targetVillage && targetVillage.match(/\d+\|\d+/) && maxTime && maxTime.match(/\d+:\d+:\d+/);
     const maxTimeSeconds = isTimeFilterActive ? parseTimeToSeconds(maxTime) : 0;
     const unitSpeed = isTimeFilterActive ? unitSpeeds[travelUnit] : 0;
@@ -466,12 +594,13 @@ function displayEverything() {
             const thisVillageAxeUnits = village.axe || 0;
             const thisVillageLightUnits = village.light || 0;
             const thisVillageRamUnits = village.ram || 0;
-            if (thisVillageAxeUnits >= minAxeAntiBunk && thisVillageLightUnits >= minLightAntiBunk && thisVillageRamUnits >= minRamAntiBunk) {
+            const thisVillageNobleUnits = village.snob || village.noble || 0;
+            if (thisVillageAxeUnits >= minAxeAntiBunk && thisVillageLightUnits >= minLightAntiBunk && thisVillageRamUnits >= minRamAntiBunk && (!requireNoble || thisVillageNobleUnits > 0) ) {
                 typeTotals[playerName]["AntiBunk"] += 1;
-                bucketVillages[playerName].AntiBunk.push({ coord: village.coords, continent: village.continent, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds });
-            } else if (thisVillageAxeUnits >= minAxeFullAtk && thisVillageLightUnits >= minLightFullAtk && thisVillageRamUnits >= minRamFullAtk && thisVillageRamUnits < minRamAntiBunk) {
+                bucketVillages[playerName].AntiBunk.push({ coord: village.coords, continent: village.continent, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds, noble: thisVillageNobleUnits, });
+            } else if (thisVillageAxeUnits >= minAxeFullAtk && thisVillageLightUnits >= minLightFullAtk && thisVillageRamUnits >= minRamFullAtk && thisVillageRamUnits < minRamAntiBunk && (!requireNoble || thisVillageNobleUnits > 0) ) {
                 typeTotals[playerName]["FullAtk"] += 1;
-                bucketVillages[playerName].FullAtk.push({ coord: village.coords, continent: village.continent, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds });
+                bucketVillages[playerName].FullAtk.push({ coord: village.coords, continent: village.continent, axe: thisVillageAxeUnits, lc: thisVillageLightUnits, ram: thisVillageRamUnits, travelTime: travelTimeSeconds, noble: thisVillageNobleUnits, });
             }
         }
         grandTotalAntiBunk += typeTotals[playerName]["AntiBunk"];
@@ -493,6 +622,15 @@ function displayEverything() {
                 <div class="atc-settings-panel">
                     <form id="settings" class="atc-settings-form">
                         <table>
+                        <tr><th style="margin-top:10px" data-tip="Tick to show villages that have fulls + nobles ready" colspan="2">Require Noble</th></tr>
+                        <tr>
+                            <td colspan="2">
+                            <label style="white-space:nowrap">
+                              <input name="requireNoble" type="checkbox" ${requireNoble ? "checked" : ""}>
+                              Show only villages with ≥ 1 Noble
+                             </label>
+                            </td>
+                        </tr>
                             <tr><th colspan="2">Anti-Bunk Thresholds</th></tr>
                             <tr><td>Axe ≥</td><td><input name="minAxeAntiBunk" type="text" value="${minAxeAntiBunk}"></td></tr>
                             <tr><td>CL ≥</td><td><input name="minLightAntiBunk" type="text" value="${minLightAntiBunk}"></td></tr>
@@ -501,6 +639,17 @@ function displayEverything() {
                             <tr><td>Axe ≥</td><td><input name="minAxeFullAtk" type="text" value="${minAxeFullAtk}"></td></tr>
                             <tr><td>CL ≥</td><td><input name="minLightFullAtk" type="text" value="${minLightFullAtk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamFullAtk" type="text" value="${minRamFullAtk}"></td></tr>
+                            <tr><th data-tip="Only count villages whose *home* spear+sword+heavy population is at or below this value.\n So to not count bunks " colspan="2">Available-defense pop limit</th></tr>
+                            <tr>
+                                <td  colspan="2">
+                                    <select onchange="document.getElementsByName('maxAvailableDefPop')[0].value=this.value;">
+                                        <option value="24000">24 000</option>
+                                        <option value="26400">26 400</option>
+                                        <option value="30000">30 000</option>
+                                    </select>
+                                    or&nbsp;custom: <input   name="maxAvailableDefPop" type="text" value="${maxAvailableDefPop}" style="width:80px;">
+                                </td>
+                            </tr>
                             <tr><th colspan="2">Travel Time Filter</th></tr>
                             <tr><td>Target Coords</td><td><input name="targetVillage" type="text" value="${targetVillage}" placeholder="e.g., 500|500"></td></tr>
                             <tr><td>Max Time (HH:MM:SS)</td><td><input name="maxTime" type="text" value="${maxTime}"></td></tr>
@@ -520,25 +669,27 @@ function displayEverything() {
     `;
 
     $.each(playerData, function (playerName) {
+        const defList   = bucketDefense[playerName] || [];   // <- instead of bucketDefense[…]
+const defCount  = defTotals[playerName] || 0;
         const timeHeader = isTimeFilterActive ? `<th>Time (${travelUnit})</th>` : '';
         const timeCell = (v) => isTimeFilterActive ? `<td>${formatTimeFromSeconds(v.travelTime)}</td>` : '';
 
        const abRows = bucketVillages[playerName].AntiBunk.map(v => {
         const [x, y] = v.coord.split('|');
         const mapLink = `${game_data.link_base_pure}map&x=${x}&y=${y}`;
-        return `<tr><td><a href="${mapLink}" target="_blank">${v.coord}</a> ${v.continent}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td>${timeCell(v)}</tr>`;
+        return `<tr><td><a href="${mapLink}" target="_blank">${v.coord}</a> ${v.continent}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td><td>${numberWithCommas(v.noble)}</td>${timeCell(v)}</tr>`;
     }).join(''); const abTable = abRows ? `<table class="village-list-table">
-                                      <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th>${timeHeader}</tr></thead>
+                                      <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th><th>Noble</th>${timeHeader}</tr></thead>
                                       <tbody>${abRows}</tbody>
                                   </table>` : '<div style="padding:10px; text-align:center;">- No villages meet criteria -</div>';
 
          const faRows = bucketVillages[playerName].FullAtk.map(v => {
         const [x, y] = v.coord.split('|');
         const mapLink = `${game_data.link_base_pure}map&x=${x}&y=${y}`;
-        return `<tr><td><a href="${mapLink}" target="_blank">${v.coord}</a> ${v.continent}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td>${timeCell(v)}</tr>`;
+        return `<tr><td><a href="${mapLink}" target="_blank">${v.coord}</a> ${v.continent}</td><td>${numberWithCommas(v.axe)}</td><td>${numberWithCommas(v.lc)}</td><td>${numberWithCommas(v.ram)}</td><td>${numberWithCommas(v.noble)}</td>${timeCell(v)}</tr>`;
     }).join('');
  const faTable = faRows ? `<table class="village-list-table">
-                                      <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th>${timeHeader}</tr></thead>
+                                      <thead><tr><th>Village</th><th>Axe</th><th>CL</th><th>Ram</th><th>Noble</th>${timeHeader}</tr></thead>
                                       <tbody>${faRows}</tbody>
                                   </table>` : '<div style="padding:10px; text-align:center;">- No villages meet criteria -</div>';
         
@@ -546,7 +697,22 @@ function displayEverything() {
         $.each(playerData[playerName]["total"], function (troopName, troopCount) {
             totalsGrid += `<div class="atc-troop-item"><img src="/graphic/unit/unit_${troopName}.png"> ${numberWithCommas(troopCount)}</div>`;
         });
-        
+       const defHomeTotals = defList.reduce(
+    (acc, v) => {
+        acc.spear += v.spear;
+        acc.sword += v.sword;
+        acc.heavy += v.heavy;
+        return acc;
+    },
+    { spear: 0, sword: 0, heavy: 0 }
+);
+const defSummary = `
+    <div class="atc-totals-grid">
+        <div class="atc-troop-item"><img src="/graphic/unit/unit_spear.png"> ${numberWithCommas(defHomeTotals.spear)}</div>
+        <div class="atc-troop-item"><img src="/graphic/unit/unit_sword.png"> ${numberWithCommas(defHomeTotals.sword)}</div>
+        <div class="atc-troop-item"><img src="/graphic/unit/unit_heavy.png"> ${numberWithCommas(defHomeTotals.heavy)}</div>
+    </div>`;
+const defTable = defSummary; 
         html += `
         <div class="atc-player-card" id="player${playerName}">
             <div class="atc-player-header">${playerName}</div>
@@ -561,6 +727,11 @@ function displayEverything() {
                     <button class="collapsible">Show Villages</button>
                     <div class="content">${faTable}</div>
                 </div>
+             <div class="atc-category def-inline">
+                <h4>Available Defense ≤ ${numberWithCommas(maxAvailableDefPop)} pop </h4>
+              
+               ${defTable}
+            </div>
             </div>
             <div style="padding: 0 15px 15px;">
                 <button class="collapsible">Total Troop Summary</button>
