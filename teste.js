@@ -464,7 +464,7 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                 defenseData[pName][vID].sword = sword;
                 defenseData[pName][vID].heavy = heavy;
 
-                if (defPop <= +maxDefPop) {
+                if (defPop <= +maxAvailableDefPop) {
                     defTotals[pName]         += 1;
                     bucketDefense[pName].push(defenseData[pName][vID]);
                 }
@@ -591,12 +591,12 @@ function displayEverything() {
                             <tr><th colspan="2">Available-defense pop limit</th></tr>
                             <tr>
                                 <td colspan="2">
-                                    <select onchange="document.getElementsByName('maxDefPop')[0].value=this.value;">
+                                    <select onchange="document.getElementsByName('maxAvailableDefPop')[0].value=this.value;">
                                         <option value="24000">24 000</option>
                                         <option value="26400">26 400</option>
                                         <option value="30000">30 000</option>
                                     </select>
-                                    or&nbsp;custom: <input name="maxDefPop" type="text" value="${maxDefPop}" style="width:80px;">
+                                    or&nbsp;custom: <input name="maxAvailableDefPop" type="text" value="${maxAvailableDefPop}" style="width:80px;">
                                 </td>
                             </tr>
                             <tr><th colspan="2">Travel Time Filter</th></tr>
@@ -677,7 +677,7 @@ const defTable = defSummary;
                     <div class="content">${faTable}</div>
                 </div>
              <div class="atc-category">
-                <h4>Available Defense ≤ ${numberWithCommas(maxDefPop)} pop</h4>
+                <h4>Available Defense ≤ ${numberWithCommas(maxAvailableDefPop)} pop</h4>
                 <button class="collapsible">Show Troop Summary</button>   <!-- changed -->
                 <div class="content">${defTable}</div>
             </div>
