@@ -643,22 +643,22 @@ const defCount  = defTotals[playerName] || 0;
         $.each(playerData[playerName]["total"], function (troopName, troopCount) {
             totalsGrid += `<div class="atc-troop-item"><img src="/graphic/unit/unit_${troopName}.png"> ${numberWithCommas(troopCount)}</div>`;
         });
-       const defRows = defList.map(v => {
-    const [x,y]   = v.coords.split('|');
-    const link    = `${game_data.link_base_pure}map&x=${x}&y=${y}`;
-    return `<tr><td><a href="${link}" target="_blank">${v.coords}</a> ${v.continent}</td>
-                 <td>${numberWithCommas(v.spear)}</td>
-                 <td>${numberWithCommas(v.sword)}</td>
-                 <td>${numberWithCommas(v.heavy)}</td></tr>`;
-}).join('');
-
-const defTable = defRows ?
-     `<table class="village-list-table">
-         <thead><tr><th>Village</th><th>Spear</th><th>Sword</th><th>HC</th></tr></thead>
-         <tbody>${defRows}</tbody>
-      </table>`
-     : '<div style="padding:10px;text-align:center;">- No villages meet criteria -</div>';
-
+       const defHomeTotals = defList.reduce(
+    (acc, v) => {
+        acc.spear += v.spear;
+        acc.sword += v.sword;
+        acc.heavy += v.heavy;
+        return acc;
+    },
+    { spear: 0, sword: 0, heavy: 0 }
+);
+const defSummary = `
+    <div class="atc-totals-grid">
+        <div class="atc-troop-item"><img src="/graphic/unit/unit_spear.png"> ${numberWithCommas(defHomeTotals.spear)}</div>
+        <div class="atc-troop-item"><img src="/graphic/unit/unit_sword.png"> ${numberWithCommas(defHomeTotals.sword)}</div>
+        <div class="atc-troop-item"><img src="/graphic/unit/unit_heavy.png"> ${numberWithCommas(defHomeTotals.heavy)}</div>
+    </div>`;
+const defTable = defSummary; 
         html += `
         <div class="atc-player-card" id="player${playerName}">
             <div class="atc-player-header">${playerName}</div>
@@ -673,11 +673,11 @@ const defTable = defRows ?
                     <button class="collapsible">Show Villages</button>
                     <div class="content">${faTable}</div>
                 </div>
-                <div class="atc-category">
-                    <h4>Available Defense <span class="count">${defTotals[playerName] || 0}</span></h4>
-                    <button class="collapsible">Show Villages</button>
-                    <div class="content">${defTable}</div>
-                </div>
+             <div class="atc-category">
+                <h4>Available Defense <span class="count">${defTotals[playerName] || 0}</span></h4>
+                <button class="collapsible">Show Troop Summary</button>   <!-- changed -->
+                <div class="content">${defTable}</div>
+            </div>
             </div>
             <div style="padding: 0 15px 15px;">
                 <button class="collapsible">Total Troop Summary</button>
