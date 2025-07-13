@@ -268,6 +268,11 @@ const improvedCSS = `
         gap: 10px;
         padding: 10px;
     }
+    .def-inline .atc-totals-grid{
+    display:flex;               /* ditch the auto-fill grid        */
+    gap:12px;                   /* space between the three pills   */
+    justify-content:flex-start; /* keep them left-aligned           */
+    }
     .atc-troop-item {
         display: flex;
         align-items: center;
@@ -683,10 +688,10 @@ const defTable = defSummary;
                     <button class="collapsible">Show Villages</button>
                     <div class="content">${faTable}</div>
                 </div>
-             <div class="atc-category">
+             <div class="atc-category def-inline">
                 <h4>Available Defense ≤ ${numberWithCommas(maxAvailableDefPop)} pop</h4>
-                <button class="collapsible">Show Troop Summary</button>   <!-- changed -->
-                <div class="content">${defTable}</div>
+              
+               ${defTable}
             </div>
             </div>
             <div style="padding: 0 15px 15px;">
