@@ -310,7 +310,7 @@ const improvedCSS = `
 }
 [data-tip]::after{
     content:attr(data-tip);
-    position:absolute; left:50%; bottom:125%;
+    position:absolute; left:50%; bottom:75%;
     transform:translateX(-50%) scale(0);
     background:#111; color:#eee; padding:6px 8px;
     border-radius:4px; font-size:12px; line-height:1.3;
@@ -639,9 +639,9 @@ function displayEverything() {
                             <tr><td>Axe ≥</td><td><input name="minAxeFullAtk" type="text" value="${minAxeFullAtk}"></td></tr>
                             <tr><td>CL ≥</td><td><input name="minLightFullAtk" type="text" value="${minLightFullAtk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamFullAtk" type="text" value="${minRamFullAtk}"></td></tr>
-                            <tr><th colspan="2">Available-defense pop limit</th></tr>
+                            <tr><th data-tip="Only count villages whose *home* spear+sword+heavy population is at or below this value.\n So to not count bunks " colspan="2">Available-defense pop limit</th></tr>
                             <tr>
-                                <td data-tip="Only count villages whose *home* spear+sword+heavy population is at or below this value.\n So to not count bunks " colspan="2">
+                                <td  colspan="2">
                                     <select onchange="document.getElementsByName('maxAvailableDefPop')[0].value=this.value;">
                                         <option value="24000">24 000</option>
                                         <option value="26400">26 400</option>
