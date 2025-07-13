@@ -344,7 +344,8 @@ $.getAll = function (urls, onLoad, onDone, onError) {
 
 function calculateEverything() {
      let doneTroops = false, doneDef = false;
-
+let offPlayersDone = 0;   // counts players whose OFF pages are fully parsed
+let defPlayersDone = 0;   // counts players whose DEF page is parsed
      
   const progressBarHtml = `
         <div id="ally-troop-counter-main">
@@ -409,12 +410,20 @@ function calculateEverything() {
                     playerData[player[i].name] = villageData;
                     typeTotals[player[i].name] = { "AntiBunk": 0, "FullAtk": 0 };
                     bucketVillages[player[i].name] = { AntiBunk: [], FullAtk: [] };
+                      offPlayersDone++;
+        $("#atc-progress").css("width",
+               `${(offPlayersDone + defPlayersDone) / (player.length * 2) * 100}%`)
+               .text(`${offPlayersDone + defPlayersDone} / ${player.length * 2}`);
+
+        if (offPlayersDone === player.length) {
+            doneTroops = true;
+            renderIfReady();
+        }
                 },
                 (error) => {
                     console.error(error);
                 });
         },
-      () => { doneTroops = true; renderIfReady(); },
         (error) => {
             console.error(error);
         });
@@ -459,9 +468,20 @@ function calculateEverything() {
                     defTotals[pName]         += 1;
                     bucketDefense[pName].push(defenseData[pName][vID]);
                 }
+                
             });
+            defPlayersDone++;
+$("#atc-progress").css("width",
+       `${(offPlayersDone + defPlayersDone) / (player.length * 2) * 100}%`)
+       .text(`${offPlayersDone + defPlayersDone} / ${player.length * 2}`);
+
+if (defPlayersDone === player.length) {
+    doneDef = true;
+    renderIfReady();
+}
+
         },
-        () => { doneDef = true; renderIfReady(); },
+    
         (e)=>console.error(e));
 
 }
