@@ -460,9 +460,9 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                 };
 
                 // parse spear / sword / heavy columns (index based on world’s unit order)
-                const spear = +$tds.eq(1).text().trim() || 0;
-                const sword = +$tds.eq(2).text().trim() || 0;
-                const heavy = +$tds.eq(game_data.units.indexOf('heavy') + 1).text().trim() || 0;
+                const spear = +$tds.eq(3).text().trim() || 0;
+                const sword = +$tds.eq(4).text().trim() || 0;
+                const heavy = +$tds.eq(8).text().trim() || 0;
 
                 defenseData[pName][vID].spear = spear;
                 defenseData[pName][vID].sword = sword;
