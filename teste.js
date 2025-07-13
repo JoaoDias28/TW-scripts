@@ -21,7 +21,7 @@ const defTotals       = {};              // player-level village counts
 const bucketDefense   = {};              // player-level village lists
 
 // UI thresholds
-var maxSpearDef, maxSwordDef, maxHeavyDef;
+var maxAvailableDefPop;
 // --- NEW ---: Add unit speeds and travel time settings variables
 var minAxeAntiBunk, minLightAntiBunk, minRamAntiBunk, minAxeFullAtk, minLightFullAtk, minRamFullAtk;
 var targetVillage, maxTime, travelUnit;
@@ -77,9 +77,7 @@ function loadSettings() {
         minAxeFullAtk: "4500",
         minLightFullAtk: "2000",
         minRamFullAtk: "300",
-        maxSpearDef:"10000",
-        maxSwordDef:"10000",
-        maxHeavyDef:"1000",
+        maxAvailableDefPop:"24000",
         targetVillage: "",
         maxTime: "12:00:00",
         travelUnit: "ram"
@@ -107,9 +105,7 @@ function loadSettings() {
     minAxeFullAtk = finalSettings.minAxeFullAtk;
     minLightFullAtk = finalSettings.minLightFullAtk;
     minRamFullAtk = finalSettings.minRamFullAtk;
-    maxSpearDef = finalSettings.maxSpearDef;
-    maxSwordDef = finalSettings.maxSwordDef;
-    maxHeavyDef = finalSettings.maxHeavyDef;
+    maxAvailableDefPop = finalSettings.maxAvailableDefPop;
     targetVillage = finalSettings.targetVillage;
     maxTime = finalSettings.maxTime;
     travelUnit = finalSettings.travelUnit;
@@ -463,12 +459,12 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                 const spear = +$tds.eq(3).text().trim() || 0;
                 const sword = +$tds.eq(4).text().trim() || 0;
                 const heavy = +$tds.eq(8).text().trim() || 0;
-
+                const defPop = spear + sword + heavy * 6;
                 defenseData[pName][vID].spear = spear;
                 defenseData[pName][vID].sword = sword;
                 defenseData[pName][vID].heavy = heavy;
 
-                if ( (spear + sword + heavy) <= (+maxSpearDef + +maxSwordDef + +maxHeavyDef) ) {
+                if (defPop <= +maxDefPop) {
                     defTotals[pName]         += 1;
                     bucketDefense[pName].push(defenseData[pName][vID]);
                 }
@@ -592,10 +588,17 @@ function displayEverything() {
                             <tr><td>Axe ≥</td><td><input name="minAxeFullAtk" type="text" value="${minAxeFullAtk}"></td></tr>
                             <tr><td>CL ≥</td><td><input name="minLightFullAtk" type="text" value="${minLightFullAtk}"></td></tr>
                             <tr><td>Ram ≥</td><td><input name="minRamFullAtk" type="text" value="${minRamFullAtk}"></td></tr>
-                            <tr><th colspan="2">Defense (available) Thresholds</th></tr>
-                            <tr><td>Spear ≥</td> <td><input name="maxSpearDef"  type="text" value="${maxSpearDef}"></td></tr>
-                            <tr><td>Sword ≥</td> <td><input name="maxSwordDef"  type="text" value="${maxSwordDef}"></td></tr>
-                            <tr><td>HC ≥</td>    <td><input name="maxHeavyDef"  type="text" value="${maxHeavyDef}"></td></tr>
+                            <tr><th colspan="2">Available-defense pop limit</th></tr>
+                            <tr>
+                                <td colspan="2">
+                                    <select onchange="document.getElementsByName('maxDefPop')[0].value=this.value;">
+                                        <option value="24000">24 000</option>
+                                        <option value="26400">26 400</option>
+                                        <option value="30000">30 000</option>
+                                    </select>
+                                    or&nbsp;custom: <input name="maxDefPop" type="text" value="${maxDefPop}" style="width:80px;">
+                                </td>
+                            </tr>
                             <tr><th colspan="2">Travel Time Filter</th></tr>
                             <tr><td>Target Coords</td><td><input name="targetVillage" type="text" value="${targetVillage}" placeholder="e.g., 500|500"></td></tr>
                             <tr><td>Max Time (HH:MM:SS)</td><td><input name="maxTime" type="text" value="${maxTime}"></td></tr>
@@ -674,7 +677,7 @@ const defTable = defSummary;
                     <div class="content">${faTable}</div>
                 </div>
              <div class="atc-category">
-                <h4>Available Defense <span class="count">${defTotals[playerName] || 0}</span></h4>
+                <h4>Available Defense ≤ ${numberWithCommas(maxDefPop)} pop</h4>
                 <button class="collapsible">Show Troop Summary</button>   <!-- changed -->
                 <div class="content">${defTable}</div>
             </div>
