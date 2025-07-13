@@ -324,8 +324,7 @@ $.getAll = function (urls, onLoad, onDone, onError) {
             setTimeout(loadNext, timeRemaining);
             return;
         }
-        $("#atc-progress").css("width", `${(numDone + 1) / urls.length * 100}%`).text(`${(numDone + 1)} / ${urls.length}`);
-        lastRequestTime = now;
+         lastRequestTime = now;
         $.get(urls[numDone])
             .done((data) => {
                 try {
@@ -333,11 +332,11 @@ $.getAll = function (urls, onLoad, onDone, onError) {
                     ++numDone;
                     loadNext();
                 } catch (e) {
-                    onError(e);
+                    (onError || console.error)(e);
                 }
             })
             .fail((xhr) => {
-                onError(xhr);
+               (onError || console.error)(xhr); 
             });
     }
 };
@@ -346,7 +345,7 @@ function calculateEverything() {
      let doneTroops = false, doneDef = false;
 let offPlayersDone = 0;   // counts players whose OFF pages are fully parsed
 let defPlayersDone = 0;   // counts players whose DEF page is parsed
-     
+    
   const progressBarHtml = `
         <div id="ally-troop-counter-main">
             <div id="atc-progressbar">
@@ -417,6 +416,8 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
 
         if (offPlayersDone === player.length) {
             doneTroops = true;
+          
+
             renderIfReady();
         }
                 },
@@ -424,6 +425,7 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
                     console.error(error);
                 });
         },
+        () => {},      
         (error) => {
             console.error(error);
         });
@@ -431,10 +433,7 @@ let defPlayersDone = 0;   // counts players whose DEF page is parsed
          /* ========== pass 2: DEFENSIVE ========== */
     $.getAll(defPlayerURLs,
         (i, data) => {
-            $("#atc-progress").css("width",
-                 `${(playerURLs.length + i + 1) / (playerURLs.length * 2) * 100}%`)
-                 .text(`${playerURLs.length + i + 1} / ${playerURLs.length * 2}`);
-
+        
             const $rows = $(data).find(".vis.w100 tr").not(':first');
             const pName = player[i].name;            // same player index
             if (!defenseData[pName]) {
@@ -477,11 +476,12 @@ $("#atc-progress").css("width",
 
 if (defPlayersDone === player.length) {
     doneDef = true;
+ 
     renderIfReady();
 }
 
         },
-    
+    () => {},      
         (e)=>console.error(e));
 
 }
@@ -611,7 +611,7 @@ function displayEverything() {
 
     $.each(playerData, function (playerName) {
         const defList   = bucketDefense[playerName] || [];   // <- instead of bucketDefense[…]
-const defCount  = defTotals[playerName]
+const defCount  = defTotals[playerName] || 0;
         const timeHeader = isTimeFilterActive ? `<th>Time (${travelUnit})</th>` : '';
         const timeCell = (v) => isTimeFilterActive ? `<td>${formatTimeFromSeconds(v.travelTime)}</td>` : '';
 
